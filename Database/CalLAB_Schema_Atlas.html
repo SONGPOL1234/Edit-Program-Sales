@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CalLAB Schema Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Thai:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F4F2EE; --bg-grid:rgba(20,20,30,.06); --surface:#FFFFFF; --surface-2:#FAF9F7; --chrome:rgba(255,255,255,.78);
+  --line:rgba(20,22,30,.09); --line-strong:rgba(20,22,30,.16);
+  --text:#16171D; --text-2:#5A5D68; --text-3:#8D909A;
+  --edge:rgba(30,32,45,.22); --shadow:0 1px 2px rgba(16,18,27,.05),0 8px 24px -8px rgba(16,18,27,.12);
+  --shadow-lg:0 2px 4px rgba(16,18,27,.06),0 24px 48px -12px rgba(16,18,27,.22);
+  --zone-alpha:.07; --accent:#16171D; --accent-ink:#fff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B0C10; --bg-grid:rgba(255,255,255,.045); --surface:#14161C; --surface-2:#191C23; --chrome:rgba(17,19,24,.72);
+    --line:rgba(255,255,255,.07); --line-strong:rgba(255,255,255,.13);
+    --text:#ECEDF1; --text-2:#A2A6B2; --text-3:#6B707C;
+    --edge:rgba(220,225,240,.20); --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -10px rgba(0,0,0,.6);
+    --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 30px 60px -12px rgba(0,0,0,.75);
+    --zone-alpha:.055; --accent:#ECEDF1; --accent-ink:#0B0C10;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0C10; --bg-grid:rgba(255,255,255,.045); --surface:#14161C; --surface-2:#191C23; --chrome:rgba(17,19,24,.72);
+  --line:rgba(255,255,255,.07); --line-strong:rgba(255,255,255,.13);
+  --text:#ECEDF1; --text-2:#A2A6B2; --text-3:#6B707C;
+  --edge:rgba(220,225,240,.20); --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -10px rgba(0,0,0,.6);
+  --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 30px 60px -12px rgba(0,0,0,.75);
+  --zone-alpha:.055; --accent:#ECEDF1; --accent-ink:#0B0C10;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:13px/1.45 Inter,"Noto Sans Thai",system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+button{font:inherit;color:inherit}
+.th{font-family:"Noto Sans Thai",Inter,sans-serif}
+
+/* ---------- canvas ---------- */
+#stage{position:fixed;inset:0;cursor:grab;touch-action:none;
+  background-image:radial-gradient(var(--bg-grid) 1px,transparent 1.2px);background-size:22px 22px}
+#stage.panning{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+#edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.zone{position:absolute;border-radius:28px;border:1px solid color-mix(in srgb,var(--c) 28%,transparent);
+  background:color-mix(in srgb,var(--c) calc(var(--zone-alpha)*100%),transparent);transition:opacity .25s}
+.zone-head{position:absolute;left:28px;top:22px;right:28px;display:flex;align-items:baseline;gap:12px;pointer-events:none}
+.zone-idx{font:500 11px "JetBrains Mono";color:var(--c);letter-spacing:.08em}
+.zone-name{font:400 30px/1 "Instrument Serif",serif;letter-spacing:-.01em;color:var(--text)}
+.zone-th{font-size:12px;color:var(--text-3);margin-left:auto;white-space:nowrap}
+
+.card{position:absolute;width:256px;background:var(--surface);border-radius:14px;box-shadow:var(--shadow);
+  border:1px solid var(--line);overflow:hidden;transition:opacity .2s,box-shadow .2s,transform .2s;cursor:default}
+.card:hover{box-shadow:var(--shadow-lg)}
+.card.sel{box-shadow:0 0 0 2px var(--c),var(--shadow-lg)}
+.card-h{height:44px;display:flex;align-items:center;gap:10px;padding:0 14px;cursor:grab;
+  border-bottom:1px solid var(--line);background:linear-gradient(180deg,color-mix(in srgb,var(--c) 9%,var(--surface)),var(--surface))}
+.card-h:active{cursor:grabbing}
+.dot{width:8px;height:8px;border-radius:3px;background:var(--c);flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}
+.card-n{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.card-cnt{font:500 10.5px "JetBrains Mono";color:var(--text-3)}
+.row{height:26px;display:flex;align-items:center;gap:8px;padding:0 14px;font-size:12px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .cn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-2)}
+.row .ct{font:400 10.5px "JetBrains Mono";color:var(--text-3);white-space:nowrap}
+.row.k .cn{color:var(--text);font-weight:500}
+.kb{font:600 9px "JetBrains Mono";letter-spacing:.04em;padding:2px 5px;border-radius:5px;flex:none;width:26px;text-align:center}
+.kb.pk{background:color-mix(in srgb,#E9B949 22%,transparent);color:#C48F12}
+.kb.fk{background:color-mix(in srgb,var(--c) 20%,transparent);color:color-mix(in srgb,var(--c) 75%,var(--text))}
+.kb.ref{background:var(--line);color:var(--text-2)}
+.kb.no{visibility:hidden}
+.row.more{color:var(--text-3);font-size:11px;justify-content:center;background:var(--surface-2);cursor:pointer}
+.row.more:hover{color:var(--text)}
+.row.hl{background:color-mix(in srgb,var(--c) 12%,transparent)}
+
+.dim .card:not(.lit),.dim .zone:not(.lit){opacity:.18}
+.e{fill:none;stroke-width:1.4;transition:opacity .2s,stroke-width .2s}
+.e-m{fill:none;stroke-width:1.4;stroke-linecap:round}
+.dim .eg:not(.lit){opacity:.06}
+.eg.lit .e{stroke-width:2.4;stroke-dasharray:7 5;animation:flow 1s linear infinite}
+.eg.lit .e-m{stroke-width:2}
+.eg.decl .e{stroke-width:2}
+@keyframes flow{to{stroke-dashoffset:-24}}
+.hidden-dom{opacity:.08!important;pointer-events:none}
+
+/* ---------- chrome ---------- */
+.glass{background:var(--chrome);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);
+  border:1px solid var(--line-strong);box-shadow:var(--shadow)}
+#top{position:fixed;left:16px;right:16px;top:16px;height:60px;border-radius:18px;display:flex;align-items:center;gap:18px;padding:0 10px 0 18px;z-index:10}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:34px;height:34px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink)}
+.brand h1{margin:0;font:400 23px/1 "Instrument Serif",serif;letter-spacing:-.01em;white-space:nowrap}
+.brand h1 i{color:var(--text-3)}
+.brand p{margin:3px 0 0;font-size:11px;color:var(--text-3);white-space:nowrap}
+.stats{display:flex;gap:4px;margin-left:auto}
+.stat{padding:6px 12px;border-radius:10px;text-align:right}
+.stat b{display:block;font:500 17px/1.1 "JetBrains Mono";letter-spacing:-.02em}
+.stat span{font-size:10.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em}
+.sep{width:1px;height:28px;background:var(--line-strong)}
+.tools{display:flex;gap:4px}
+.ib{height:38px;min-width:38px;padding:0 10px;border-radius:11px;border:0;background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;color:var(--text-2)}
+.ib:hover{background:var(--line);color:var(--text)}
+.ib svg{width:17px;height:17px}
+#zoomv{font:500 11.5px "JetBrains Mono";min-width:52px}
+
+#side{position:fixed;left:16px;top:88px;bottom:16px;width:290px;border-radius:18px;z-index:9;display:flex;flex-direction:column;overflow:hidden}
+.search{margin:12px;position:relative}
+.search input{width:100%;height:40px;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface);color:var(--text);
+  padding:0 40px 0 36px;font:inherit;outline:none;transition:box-shadow .15s}
+.search input:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--text) 12%,transparent)}
+.search svg{position:absolute;left:12px;top:12px;width:16px;height:16px;color:var(--text-3)}
+.search kbd{position:absolute;right:10px;top:10px;font:500 10.5px "JetBrains Mono";color:var(--text-3);border:1px solid var(--line-strong);border-radius:6px;padding:1px 6px}
+.sec{padding:6px 18px 6px;font:600 10.5px Inter;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);display:flex;justify-content:space-between}
+.sec button{background:none;border:0;color:var(--text-3);cursor:pointer;font:inherit;padding:0;letter-spacing:inherit}
+.sec button:hover{color:var(--text)}
+#doms{padding:0 10px 8px;display:flex;flex-direction:column;gap:1px}
+.dom{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:10px;cursor:pointer;border:0;background:none;text-align:left;width:100%}
+.dom:hover{background:var(--line)}
+.dom .sw{width:14px;height:14px;border-radius:5px;background:var(--c);flex:none;transition:all .15s}
+.dom.off .sw{background:transparent;box-shadow:inset 0 0 0 1.5px var(--c)}
+.dom.off .dn{color:var(--text-3)}
+.dom .dn{flex:1;font-weight:500;font-size:12.5px}
+.dom .dc{font:500 11px "JetBrains Mono";color:var(--text-3)}
+#list{flex:1;overflow:auto;padding:0 10px 12px;border-top:1px solid var(--line);scrollbar-width:thin}
+#list .sec{position:sticky;top:0;background:var(--chrome);backdrop-filter:blur(12px);padding-top:12px;margin:0 -10px;padding-left:28px;z-index:1}
+.ti{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:6px 8px;border-radius:9px;cursor:pointer;text-align:left}
+.ti:hover,.ti.sel{background:var(--line)}
+.ti .dot{width:6px;height:6px;border-radius:2px;box-shadow:none}
+.ti .tn{flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ti .tr{font:400 10.5px "JetBrains Mono";color:var(--text-3)}
+.ti mark{background:color-mix(in srgb,#E9B949 40%,transparent);color:inherit;border-radius:3px}
+.empty{padding:24px 8px;color:var(--text-3);text-align:center;font-size:12px}
+
+#insp{position:fixed;right:16px;top:88px;bottom:16px;width:360px;border-radius:18px;z-index:9;display:flex;flex-direction:column;overflow:hidden;
+  transform:translateX(calc(100% + 24px));transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+#insp.open{transform:none}
+.ih{padding:20px 20px 16px;border-bottom:1px solid var(--line);position:relative}
+.ih .badge{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:500;color:var(--c);padding:4px 10px 4px 8px;border-radius:99px;background:color-mix(in srgb,var(--c) 14%,transparent)}
+.ih h2{margin:12px 0 4px;font:400 34px/1.05 "Instrument Serif",serif;letter-spacing:-.01em;word-break:break-all}
+.ih p{margin:0;color:var(--text-3);font-size:12px}
+.ih .x{position:absolute;right:12px;top:12px}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+.metric{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.metric b{display:block;font:500 18px/1.1 "JetBrains Mono"}
+.metric span{font-size:10.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em}
+.ib-body{flex:1;overflow:auto;padding:6px 0 20px;scrollbar-width:thin}
+.rel{display:flex;align-items:center;gap:10px;margin:2px 12px;padding:8px 10px;border-radius:10px;cursor:pointer;border:0;background:none;width:calc(100% - 24px);text-align:left}
+.rel:hover{background:var(--line)}
+.rel .ra{font:400 11.5px "JetBrains Mono";color:var(--text-2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rel .ra b{color:var(--text);font-weight:500}
+.rel .rt{font:600 9px "JetBrains Mono";padding:2px 6px;border-radius:5px;background:var(--line);color:var(--text-2)}
+.rel .rt.d{background:color-mix(in srgb,#7FD1AE 25%,transparent);color:#2F9E73}
+.cols{margin:2px 12px}
+.col{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;font-size:12px}
+.col:nth-child(odd){background:color-mix(in srgb,var(--line) 50%,transparent)}
+.col .cn{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.col .ct{font:400 10.5px "JetBrains Mono";color:var(--text-3);text-align:right;white-space:nowrap}
+.col .nn{color:#E06C75;margin-left:3px}
+.col.id .cn::after{content:"identity";font:500 9px "JetBrains Mono";color:var(--text-3);margin-left:6px;border:1px solid var(--line-strong);border-radius:4px;padding:0 4px}
+
+#legend{position:fixed;left:322px;bottom:16px;border-radius:14px;z-index:8;padding:10px 14px;display:flex;gap:18px;align-items:center;font-size:11.5px;color:var(--text-2)}
+#legend .li{display:flex;align-items:center;gap:8px;white-space:nowrap}
+#legend svg{overflow:visible}
+#legend .note{color:var(--text-3);border-left:1px solid var(--line-strong);padding-left:16px}
+#mini{position:fixed;right:16px;bottom:16px;width:220px;height:140px;border-radius:14px;z-index:8;overflow:hidden;cursor:pointer;transition:right .35s cubic-bezier(.2,.8,.2,1)}
+body.insp-open #mini{right:392px}
+body.insp-open #legend .note{display:none}
+#mini canvas{width:100%;height:100%;display:block}
+
+#tip{position:fixed;pointer-events:none;z-index:20;padding:8px 11px;border-radius:10px;font:400 11.5px "JetBrains Mono";opacity:0;transition:opacity .12s;white-space:nowrap}
+#tip.on{opacity:1}
+#tip b{font-weight:500;color:var(--text)}
+#tip span{color:var(--text-3)}
+
+@media (max-width:1100px){.stats .stat:nth-child(n+3){display:none}#legend .note{display:none}}
+@media (max-width:820px){
+  #top{left:12px;right:12px;top:12px;height:56px;gap:10px;padding:0 6px 0 12px}
+  .brand p,.stats,.sep{display:none}
+  #side{left:12px;right:12px;top:auto;bottom:12px;width:auto;height:46vh;transform:translateY(calc(100% - 64px));transition:transform .3s}
+  #side.open{transform:none}
+  #insp{left:12px;right:12px;width:auto;top:80px;bottom:12px}
+  #legend,#mini{display:none}
+  #sidebtn{display:inline-flex!important}
+}
+#sidebtn{display:none}
+</style>
+</head>
+<body>
+<div id="stage"><div id="world"><svg id="edges"></svg></div></div>
+
+<header id="top" class="glass">
+  <div class="brand">
+    <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v6.5c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V5.5"/><path d="M4.5 12v6.5c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V12"/></svg></div>
+    <div><h1>CalLAB <i>Schema Atlas</i></h1><p class="th">แผนผังความสัมพันธ์ฐานข้อมูล · dbo</p></div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="sep"></div>
+  <div class="tools">
+    <button class="ib" id="sidebtn" title="Tables"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+    <button class="ib" id="zout" title="Zoom out (−)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 12h12"/></svg></button>
+    <button class="ib" id="zoomv" title="Fit to screen (F)">100%</button>
+    <button class="ib" id="zin" title="Zoom in (+)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 12h12M12 6v12"/></svg></button>
+    <button class="ib" id="fit" title="Fit to screen (F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button class="ib" id="theme" title="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
+  </div>
+</header>
+
+<aside id="side" class="glass">
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" placeholder="ค้นหาตาราง หรือคอลัมน์…" autocomplete="off" spellcheck="false"><kbd>/</kbd>
+  </div>
+  <div class="sec"><span>Domains</span><button id="allDom">Show all</button></div>
+  <div id="doms"></div>
+  <div id="list"></div>
+</aside>
+
+<aside id="insp" class="glass"></aside>
+
+<div id="legend" class="glass">
+  <div class="li"><svg width="44" height="12"><path d="M2 6H42" stroke="var(--text-2)" stroke-width="1.4"/><path d="M2 1 L9 6 L2 11 M9 6" fill="none" stroke="var(--text-2)" stroke-width="1.4"/><path d="M37 1V11M40 1V11" stroke="var(--text-2)" stroke-width="1.4"/></svg>many → one</div>
+  <div class="li"><svg width="44" height="12"><path d="M2 6H42" stroke="var(--text-2)" stroke-width="1.4"/><path d="M5 1V11M37 1V11M40 1V11" stroke="var(--text-2)" stroke-width="1.4"/></svg>one ↔ one</div>
+  <div class="li"><svg width="44" height="12"><path d="M2 6H42" stroke="#2F9E73" stroke-width="2.2"/></svg>Declared FK</div>
+  <div class="note th">มี FK ประกาศจริงเพียง 2 รายการ · ที่เหลืออนุมานจากชื่อคอลัมน์</div>
+</div>
+<div id="mini" class="glass"><canvas></canvas></div>
+<div id="tip" class="glass"></div>
+
+<script>
+const DATA={"domains":[{"id":"crm","name":"Customers & Sales","th":"ลูกค้า ผู้ติดต่อ คำขอ และค่าคอมมิชชัน","color":"#E8A87C","tables":["Customer","tblCustomerReq","tblCustomerRQ","tblCustomerRQItem","Contact","tblCommission","tblCommissionList","tblCommmissionCond","tblAddressReport"]},{"id":"quo","name":"Quotations","th":"ใบเสนอราคา รายการ ต้นทุน และการยืนยันคำสั่งซื้อ","color":"#F2C46D","tables":["Quotation","QuotationItem","QuotationRemark","QuotationCost","OrderConfirm","tblCurrency"]},{"id":"bill","name":"Billing & Receivables","th":"ใบส่งของ ใบแจ้งหนี้ ใบวางบิล และใบลดหนี้","color":"#7FD1AE","tables":["tblInvoice","tblInvoiceList","tblInvoiceItem","tblBill","tblBillList","tblDelivery","tblDeliveryItem","tblCreditNote","tblCreditNoteItem","tblWHTax"]},{"id":"hr","name":"People & Payroll","th":"พนักงาน สิทธิ์ใช้งาน การฝึกอบรม และเงินเดือน","color":"#C3A6F2","tables":["Technical","PassWord","tblUserGroup","tblPL","tbEducation","Traning","JobDescription","tblSalary","Product_R","ProductR","JobNumber","tblBonus","tblCalendar"]},{"id":"cal","name":"Calibration Workflow","th":"รับเครื่องมือ สั่งงาน ติดตามสถานะ และออกใบรับรอง","color":"#6FB7F5","tables":["Instrument","History","HistoryStand","Workorder","tblTracking","Report","Procedure","tblLabName","tblHistoryEnv","tblResult","tblResultType","tblStatus"]},{"id":"std","name":"Standards & Equipment","th":"เครื่องมือมาตรฐาน การสอบกลับ และการบำรุงรักษา","color":"#5FD0D6","tables":["Stands","tblStandTrace","tblTrace","Acces","Accessories","Visuals","CheckList","Mantan","ScheduleStandard","TblRecall","tblTMSetting"]},{"id":"sys","name":"System & Settings","th":"การตั้งค่าระบบ เลขเอกสาร และข้อมูลบริษัท","color":"#9AA3B2","tables":["tblCompany","tblFormNo","tblControlNo","tblFunction","FunctionName","Pass","Groups","Paste Errors"]},{"id":"cat","name":"Catalog & Master Data","th":"รายการบริการ ราคา ผู้ผลิต และหน่วย","color":"#F28FA6","tables":["Description","SubDescription","Manufac","tblUnit","AccessDescription","tblTermPayment","tblBankName","Description_BK","SubDescription_BK"]},{"id":"ap","name":"Procurement & Payables","th":"ผู้ขาย PR/PO ค่าใช้จ่าย การจ่ายเงิน และงานส่งช่วง","color":"#A8C66C","tables":["tblSupplier","tblPR","tblPRList","tblPO","tblPOList","tblPayable","tblPaymentV","tblPaymentVList","tblCheque","tblIExpenses","tblEExpenses","tblExpMainData","tblExpSubData","tblExpData","tblSubContact","tblSubContactList"]}],"tables":[{"name":"Paste Errors","pk":[],"cols":[["Field0","NTEXT",0,0],["Field1","NTEXT",0,0],["Field2","NTEXT",0,0],["Field3","NTEXT",0,0],["Field4","NTEXT",0,0],["Field5","NTEXT",0,0],["Field6","NTEXT",0,0],["Field7","NTEXT",0,0],["Field8","NTEXT",0,0],["Field9","NTEXT",0,0],["Field10","NTEXT",0,0],["Field11","NTEXT",0,0],["Field12","NTEXT",0,0],["Field13","NTEXT",0,0],["Field14","NTEXT",0,0],["Field15","NTEXT",0,0],["Field16","NTEXT",0,0],["Field17","NTEXT",0,0],["Field18","NTEXT",0,0],["Field19","NTEXT",0,0],["Field20","NTEXT",0,0],["Field21","NTEXT",0,0],["Field22","NTEXT",0,0],["Field23","NTEXT",0,0],["Field24","NTEXT",0,0],["Field25","NTEXT",0,0],["Field26","NTEXT",0,0],["Field27","NTEXT",0,0],["Field28","NTEXT",0,0]]},{"name":"Groups","pk":[],"cols":[["Headgroup","NVARCHAR(3)",0,0],["Nameheadgroup","NVARCHAR(80)",0,0],["Chacks","NVARCHAR(1)",0,0]]},{"name":"tblSubContact","pk":["SubContNo"],"cols":[["SubContNo","NVARCHAR(15)",1,0],["ReceiveNo","NVARCHAR(15)",1,0],["SuppID","NVARCHAR(15)",1,0],["Date_out","DATETIME",1,0],["Date_expreceive","DATETIME",1,0],["Date_receive","DATETIME",0,0],["ContactName","NVARCHAR(100)",0,0],["DeliveryName","NVARCHAR(100)",1,0],["Status","NVARCHAR(50)",1,0],["TypeSub","BIT",1,0],["TypeCert","BIT",1,0],["TypeRepair","BIT",1,0],["CertType","NVARCHAR(50)",1,0],["IssueOwner","BIT",1,0],["Remarks","NVARCHAR(1000)",0,0],["StdType","BIT",1,0]]},{"name":"PassWord","pk":["PassID"],"cols":[["PassID","INT",0,1],["PassName","NVARCHAR(70)",0,0],["Password","NVARCHAR(40)",0,0],["Level","INT",0,0],["TechID","NVARCHAR(5)",1,0]]},{"name":"FunctionName","pk":[],"cols":[["FunctionName","NVARCHAR(50)",0,0]]},{"name":"Acces","pk":[],"cols":[["CalCode","NVARCHAR(15)",0,0],["AssetNo","NVARCHAR(50)",0,0],["Descrip","NVARCHAR(150)",0,0],["Manu","NVARCHAR(150)",0,0],["Mode","NVARCHAR(80)",0,0],["SerialCode","NVARCHAR(15)",0,0],["Qty","INT",0,0],["Man","BIT",1,0],["Acc","BIT",1,0]]},{"name":"Description","pk":["DescriptionId"],"cols":[["DescriptionId","NVARCHAR(9)",1,0],["DescriptionName","NVARCHAR(255)",0,0],["Price","MONEY",0,0],["DescriptionStatus","BIT",1,0]]},{"name":"Pass","pk":[],"cols":[["Password","NVARCHAR(50)",0,0]]},{"name":"Workorder","pk":[],"cols":[["ItemOrder","NVARCHAR(2)",0,0],["OrderNo","NVARCHAR(15)",0,0],["WorkOrder","NVARCHAR(15)",0,0],["TechId","NVARCHAR(90)",0,0],["DateIssue","NVARCHAR(10)",0,0],["StartDate","NVARCHAR(10)",0,0],["FinishDate","NVARCHAR(10)",0,0],["Status","NVARCHAR(50)",0,0],["TotalH","FLOAT",0,0],["RH","FLOAT",0,0],["ProcH","FLOAT",0,0],["Pass","BIT",1,0],["Fail","BIT",1,0],["Ref","NVARCHAR(150)",0,0],["Note","NTEXT",0,0]]},{"name":"Customer","pk":["CustomerID"],"cols":[["CustomerID","NVARCHAR(15)",1,0],["CustomerNo","NVARCHAR(25)",0,0],["CustomerName","NVARCHAR(120)",0,0],["CustomerNameEng","NVARCHAR(120)",0,0],["Address","NVARCHAR(255)",0,0],["AddressEng","NVARCHAR(255)",0,0],["PhoneNo","NVARCHAR(55)",0,0],["FaxNo","NVARCHAR(55)",0,0],["ContactName","NVARCHAR(80)",0,0],["ClientType","NVARCHAR(15)",0,0],["Prefix","NVARCHAR(10)",0,0],["Position","NVARCHAR(60)",0,0],["Department","NVARCHAR(100)",0,0],["Note","NTEXT",0,0],["TaxNo","NVARCHAR(25)",0,0],["BranchName","NVARCHAR(150)",0,0],["Condition1","NVARCHAR(250)",0,0],["Condition2","NVARCHAR(250)",0,0],["ConditionFile","NVARCHAR(250)",0,0],["CustomerType","NVARCHAR(15)",1,0],["CustomerStatus","BIT",1,0],["ListOfBill","NVARCHAR(150)",1,0],["ListOfCheque","NVARCHAR(150)",1,0],["CustomerWebsite","NVARCHAR(80)",1,0],["CustomerEmail","NVARCHAR(80)",1,0],["RequestTechData","NVARCHAR(250)",1,0],["AddressAccount","NVARCHAR(255)",0,0],["PaymentQuo","NVARCHAR(150)",0,0],["TechId","NVARCHAR(5)",1,0],["Map","NVARCHAR(150)",1,0],["DiscountP","FLOAT",1,0],["ConfirmOrder","NVARCHAR(50)",1,0],["DeliveryBy","NVARCHAR(50)",1,0],["CreditCash","BIT",1,0],["CreditCredit","BIT",1,0],["CreditCheque","BIT",1,0],["PaybyCash","BIT",1,0],["PaybyCheque","BIT",1,0],["PaybyBankTransfer","BIT",1,0],["Bankname","NVARCHAR(80)",1,0],["BankID","NVARCHAR(20)",1,0],["QualitySystem1","BIT",1,0],["QualitySystem2","BIT",1,0],["QualitySystem3","BIT",1,0],["QualitySystem4","BIT",1,0],["QualitySystem5","BIT",1,0],["QualitySystem6","BIT",1,0],["QualitySystem7","BIT",1,0],["QualitySystem8","BIT",1,0],["QualitySystem9","BIT",1,0],["QualitySystem10","BIT",1,0],["QualitySystem11","BIT",1,0],["QualitySystem12","BIT",1,0],["QualityRemark","NVARCHAR(150)",1,0],["QualityFile","NVARCHAR(150)",1,0]]},{"name":"Stands","pk":[],"cols":[["CalCode","NVARCHAR(15)",0,0],["InvenNo","NVARCHAR(20)",0,0],["Traceble","NVARCHAR(150)",0,0],["TracebleRef","NVARCHAR(150)",0,0],["ServiceDate","NVARCHAR(10)",0,0],["EndService","NVARCHAR(10)",0,0],["CertNo","NVARCHAR(55)",0,0],["SerialNo","NVARCHAR(30)",0,0],["DescriptionId","NVARCHAR(8)",0,0],["Manuf","NVARCHAR(100)",0,0],["Model","NVARCHAR(100)",0,0],["Range","NVARCHAR(150)",0,0],["Type","NVARCHAR(80)",0,0],["Access","BIT",1,0],["DateDue","NVARCHAR(10)",0,0],["NextCal","NVARCHAR(10)",0,0],["Note","NTEXT",0,0],["CalDate","NVARCHAR(10)",0,0],["Interval","NVARCHAR(15)",0,0],["IntervalM","NVARCHAR(15)",0,0],["DelNo","NVARCHAR(15)",0,0],["Status","NVARCHAR(15)",0,0],["SendBy","NVARCHAR(50)",0,0],["Remark","NTEXT",0,0],["SendDate","NVARCHAR(10)",0,0],["CustomerId","NVARCHAR(15)",0,0],["IntervalAlarm","INT",0,0],["StandStatus","BIT",1,0],["StatusRepair","BIT",1,0],["StatusSendCal","BIT",1,0],["StatusCalFinish","BIT",1,0],["ANAB_17025","BIT",1,0],["TISI_17025","BIT",1,0],["ServiceType","NVARCHAR(2)",1,0]]},{"name":"QuotationItem","pk":[],"cols":[["QuotationID","INT",1,0],["QuotationNo","NVARCHAR(20)",1,0],["Item","NVARCHAR(6)",0,0],["Description","NVARCHAR(150)",0,0],["SerialNo","NVARCHAR(30)",0,0],["Manuf","NVARCHAR(150)",0,0],["Model","NVARCHAR(100)",0,0],["Unit","NVARCHAR(15)",0,0],["Range","NVARCHAR(150)",0,0],["Qty","INT",0,0],["UDiscount","MONEY",0,0],["UPrice","MONEY",0,0],["TPrice","MONEY",0,0],["Check","BIT",1,0],["Remark","NTEXT",0,0],["DescriptionId","NVARCHAR(8)",0,0],["Chk17025","BIT",1,0],["ChkSub","INT",1,0],["Chk17025_ANAB","BIT",1,0],["ChkCert","BIT",1,0],["Status","NVARCHAR(80)",1,0],["PONo","NVARCHAR(50)",1,0],["PODate","DATETIME",0,0],["INVNo","NVARCHAR(50)",1,0],["INVDate","DATETIME",0,0],["Forcast","DATETIME",0,0]]},{"name":"tblSubContactList","pk":[],"cols":[["SubContNo","NVARCHAR(15)",1,0],["ItemNo","SMALLINT",0,0],["OrderNo","NVARCHAR(15)",1,0]]},{"name":"Report","pk":["ReportNo"],"cols":[["ReportNo","NVARCHAR(15)",1,0],["ReportName","NVARCHAR(120)",0,0],["Revision","NVARCHAR(50)",0,0],["RevisionDate","NVARCHAR(10)",0,0],["ReportPath","NVARCHAR(120)",0,0],["Technical","NTEXT",0,0]]},{"name":"tblPOList","pk":[],"cols":[["PONo","NVARCHAR(10)",0,0],["ItemNo","SMALLINT",0,0],["Description","NVARCHAR(400)",0,0],["Qty","INT",0,0],["Price","FLOAT",0,0],["Unit","NVARCHAR(25)",0,0],["ExpCode","NVARCHAR(15)",1,0],["Manuf","NVARCHAR(150)",1,0]]},{"name":"QuotationCost","pk":["QuotationNo"],"cols":[["QuotationNo","NVARCHAR(20)",1,0],["CDOnsiteDate","DATETIME",0,0],["CDOnsiteArea","NVARCHAR(150)",1,0],["CDEngineerCostDay","FLOAT",1,0],["CDLeadCostDay","FLOAT",1,0],["CDOilCostKm","FLOAT",1,0],["CDTransCostTrip","FLOAT",1,0],["CDHotelCostDay","FLOAT",1,0],["CDEngineerStaff","INT",1,0],["CDLeadStaff","INT",1,0],["CDOilKm","INT",1,0],["CDTransTrip","INT",1,0],["CDHotelDay","INT",1,0],["CDEngineerCost","FLOAT",1,0],["CDLeadCost","FLOAT",1,0],["CDOilCost","FLOAT",1,0],["CDTransport","NVARCHAR(150)",1,0],["CDHotel","NVARCHAR(150)",1,0],["CDComm","FLOAT",1,0],["CDSubContract","FLOAT",1,0],["CDTotalCost","FLOAT",1,0],["CDOthers","FLOAT",1,0],["CDRemarks","NVARCHAR(250)",1,0],["PDCost","FLOAT",1,0],["PDComm","FLOAT",1,0],["PDVat","FLOAT",1,0],["PDOhers","FLOAT",1,0],["PDTotalCost","FLOAT",1,0],["PDRemarks","NVARCHAR(250)",1,0]]},{"name":"tblPO","pk":["PONo"],"cols":[["PONo","NVARCHAR(10)",1,0],["Date_out","DATETIME",0,0],["SuppID","NVARCHAR(15)",0,0],["Vat","INT",0,0],["VatPrice","FLOAT",0,0],["TotalPrice","FLOAT",0,0],["GrandTotalPrice","FLOAT",0,0],["PRNo","NVARCHAR(40)",0,0],["QuantationNo","NVARCHAR(30)",0,0],["Discount","FLOAT",0,0],["PaymentCash","BIT",1,0],["PaymentCredit","BIT",1,0],["PaymentTerm","NVARCHAR(90)",0,0],["ManagementID","NVARCHAR(5)",1,0],["Date_Management","DATETIME",0,0]]},{"name":"QuotationRemark","pk":[],"cols":[["QuotationID","INT",0,0],["QuotationNo","NVARCHAR(20)",0,0],["ItemRemark","SMALLINT",0,0],["DateRemark","DATETIME",0,0],["ByRemark","NVARCHAR(80)",0,0],["NoteRemark","NTEXT",0,0]]},{"name":"tblPRList","pk":[],"cols":[["PRNo","NVARCHAR(10)",0,0],["ItemNo","SMALLINT",0,0],["Description","NVARCHAR(400)",0,0],["Qty","INT",0,0],["Price","FLOAT",0,0],["Unit","NVARCHAR(25)",0,0],["Discount","FLOAT",0,0],["TotalPrice","FLOAT",0,0],["ExpCode","NVARCHAR(15)",1,0],["Manuf","NVARCHAR(150)",1,0]]},{"name":"tbEducation","pk":[],"cols":[["TechId","NVARCHAR(5)",0,0],["ItemEducation","INT",0,0],["Course","NVARCHAR(120)",0,0],["Department","NVARCHAR(200)",0,0],["Institution","NVARCHAR(150)",0,0],["Grade","NVARCHAR(200)",0,0],["YearEnd","NVARCHAR(30)",0,0]]},{"name":"Quotation","pk":["QuotationID"],"cols":[["QuotationID","INT",0,1],["Item","NVARCHAR(6)",0,0],["ReceiveDate","NVARCHAR(10)",0,0],["RequestNo","NVARCHAR(50)",0,0],["Company","NVARCHAR(15)",0,0],["Subject","NVARCHAR(150)",0,0],["QuotationType","NVARCHAR(30)",0,0],["QuotationNo","NVARCHAR(20)",0,0],["SubmitDate","NVARCHAR(10)",0,0],["InquiryDate","DATETIME",0,0],["Qprice","FLOAT",0,0],["Currency","NVARCHAR(10)",0,0],["EngBy","NVARCHAR(90)",0,0],["OrderNo","NVARCHAR(20)",0,0],["OrderReceive","INT",0,0],["Revision","INT",0,0],["StatusQ","NVARCHAR(50)",0,0],["Remark","NVARCHAR(550)",1,0],["Project","NVARCHAR(200)",0,0],["Payment","NVARCHAR(150)",0,0],["DueDate","NVARCHAR(150)",0,0],["Duration","NVARCHAR(150)",0,0],["Scope","NTEXT",0,0],["Document","NTEXT",0,0],["Validity","NTEXT",0,0],["Name","NVARCHAR(120)",0,0],["NameCustomer","NVARCHAR(120)",0,0],["Note","NTEXT",0,0],["Reference","NVARCHAR(150)",0,0],["ChkDiscount","BIT",1,0],["Discount","FLOAT",0,0],["ComName","NVARCHAR(80)",0,0],["ComTel","NVARCHAR(50)",0,0],["ComRate","INT",0,0],["Commission","BIT",1,0],["ReportName","NVARCHAR(250)",0,0],["CommercialID","NVARCHAR(5)",0,0],["TechnicalID","NVARCHAR(5)",0,0],["PaymentTerm","BIT",1,0],["AddressOffice","INT",0,0],["PONo","NVARCHAR(250)",1,0],["PODate","DATETIME",0,0],["chkRecall","BIT",1,0],["chkRef","BIT",1,0],["PriceValidity","NVARCHAR(20)",1,0],["DeliveryDate","NVARCHAR(20)",1,0],["DeliveryTo","NVARCHAR(150)",1,0],["ChequePost","BIT",1,0],["AttachPOFileName","NVARCHAR(200)",1,0],["AttachCNFileName","NVARCHAR(200)",1,0],["INVList","NVARCHAR(200)",1,0]]},{"name":"CheckList","pk":[],"cols":[["CalCode","NVARCHAR(15)",0,0],["Suitable","BIT",1,0],["CheckName","NVARCHAR(50)",0,0],["CheckDate","DATETIME",0,0],["DispatchName","NVARCHAR(50)",0,0],["DispatchDate","DATETIME",0,0],["Note","NTEXT",0,0],["Note1","NTEXT",0,0],["Remarks","NTEXT",0,0],["IssueNo","NVARCHAR(1)",0,0]]},{"name":"Traning","pk":[],"cols":[["TechId","NVARCHAR(5)",0,0],["DateTran","NVARCHAR(10)",0,0],["Course","NVARCHAR(120)",0,0],["Instructor","NVARCHAR(200)",0,0],["Institution","NVARCHAR(150)",0,0],["Description","NVARCHAR(200)",0,0],["TranHours","INT",0,0],["CreditHours","INT",0,0],["Cost","MONEY",0,0],["Remark","NTEXT",0,0],["PathDocument","NVARCHAR(250)",0,0]]},{"name":"tblInvoiceList","pk":[],"cols":[["InvoiceNo","NVARCHAR(15)",0,0],["ItemNo","INT",0,0],["OrderNo","NVARCHAR(20)",0,0],["Qty","SMALLINT",0,0],["Price","FLOAT",0,0],["Unit","NVARCHAR(25)",0,0]]},{"name":"Accessories","pk":[],"cols":[["CalCode","NVARCHAR(15)",0,0],["Scope","NVARCHAR(50)",0,0],["Found","BIT",1,0],["Left","BIT",1,0],["Na","BIT",1,0],["Remarks","NTEXT",0,0]]},{"name":"tblInvoiceItem","pk":[],"cols":[["InvoiceNo","NVARCHAR(15)",0,0],["ItemNo","INT",0,0],["Description","NVARCHAR(150)",0,0],["Manuf","NVARCHAR(150)",0,0],["Model","NVARCHAR(100)",0,0],["Unit","NVARCHAR(15)",0,0],["Range","NVARCHAR(150)",0,0],["Qty","INT",0,0],["UDiscount","MONEY",0,0],["UPrice","MONEY",0,0],["TPrice","MONEY",0,0]]},{"name":"Manufac","pk":[],"cols":[["Manuf","NVARCHAR(150)",0,0]]},{"name":"tblInvoice","pk":[],"cols":[["InvoiceNo","NVARCHAR(15)",0,0],["Date_out","DATETIME",0,0],["CustomerID","NVARCHAR(15)",0,0],["DiscountPrice","FLOAT",0,0],["Vat","INT",0,0],["VatPrice","FLOAT",0,0],["TotalPrice","FLOAT",0,0],["GrandTotalPrice","FLOAT",0,0],["Cash","BIT",1,0],["Cheque","BIT",1,0],["Others","BIT",1,0],["OtherName","NVARCHAR(50)",0,0],["ChequeNo","NVARCHAR(20)",0,0],["ChequeDate","DATETIME",0,0],["BankName","NVARCHAR(50)",0,0],["BranchName","NVARCHAR(50)",0,0],["ChequeCost","FLOAT",0,0],["Note","NVARCHAR(150)",0,0],["RefNo","NVARCHAR(150)",0,0],["Subject","NVARCHAR(150)",0,0],["ChkDiscountUnit","BIT",1,0],["WHTax","FLOAT",0,0],["WHTaxPrice","FLOAT",0,0],["Transfers","BIT",1,0],["PayMoney","BIT",1,0],["DisableInv","BIT",1,0],["AccSignID","NVARCHAR(5)",1,0]]},{"name":"tblTMSetting","pk":[],"cols":[["TM_Loc","NVARCHAR(20)",1,0],["DueDay","INT",1,0]]},{"name":"History","pk":["CertNo"],"cols":[["CertNo","NVARCHAR(15)",1,0],["History_No","NVARCHAR(10)",0,0],["CustomerID","NVARCHAR(15)",0,0],["TechID","NVARCHAR(15)",0,0],["AdminID","NVARCHAR(15)",0,0],["Location","NVARCHAR(125)",0,0],["Method","NVARCHAR(90)",0,0],["Temp","NVARCHAR(25)",1,0],["TempB","FLOAT",0,0],["TempL","INT",0,0],["Rh","NVARCHAR(25)",1,0],["RhB","FLOAT",0,0],["RhL","INT",0,0],["RepairCost","MONEY",0,0],["CalCost","MONEY",0,0],["CalDate","NVARCHAR(10)",0,0],["NextDate","NVARCHAR(10)",0,0],["DateIssue","NVARCHAR(10)",0,0],["PageNum","INT",0,0],["OrderNo","NVARCHAR(15)",0,0],["Head","NVARCHAR(100)",0,0],["ReportID","NVARCHAR(15)",0,0],["ProcedureID","NVARCHAR(150)",0,0],["ProcedureUse","NTEXT",0,0],["ServiceLocationType","BIT",1,0],["ConditionType","BIT",1,0],["ManualType","BIT",1,0],["CalResult","NVARCHAR(150)",0,0],["LabName","NVARCHAR(4)",1,0]]},{"name":"OrderConfirm","pk":[],"cols":[["QuotationID","INT",0,0],["QuotationNo","NVARCHAR(20)",0,0],["Item","NVARCHAR(6)",0,0],["Description","NVARCHAR(150)",0,0],["Manuf","NVARCHAR(150)",0,0],["Model","NVARCHAR(100)",0,0],["Unit","NVARCHAR(15)",0,0],["Range","NVARCHAR(150)",0,0],["Qty","INT",0,0],["UDiscount","MONEY",0,0],["UPrice","MONEY",0,0],["TPrice","MONEY",0,0],["Check","BIT",1,0],["Remark","NTEXT",0,0],["PoNo","NVARCHAR(20)",0,0],["PoDate","NVARCHAR(10)",0,0],["Invoice","NVARCHAR(20)",0,0],["InvoiceDate","NVARCHAR(10)",0,0]]},{"name":"JobNumber","pk":[],"cols":[["JobNo","NVARCHAR(20)",0,0],["JobName","NVARCHAR(120)",0,0]]},{"name":"Instrument","pk":["OrderNo"],"cols":[["OrderNo","NVARCHAR(15)",1,0],["ReceiveNo","NVARCHAR(15)",0,0],["IssueNo","NVARCHAR(15)",0,0],["SerialNo","NVARCHAR(100)",0,0],["AssetNo","NVARCHAR(100)",0,0],["DescriptionName","NVARCHAR(9)",0,0],["Manuf","NVARCHAR(100)",0,0],["Accessorie","NVARCHAR(150)",0,0],["Access","BIT",1,0],["Model","NVARCHAR(100)",0,0],["Rang","NVARCHAR(220)",0,0],["Servicetype","NVARCHAR(100)",0,0],["Type","NVARCHAR(80)",0,0],["Uncertainly","NVARCHAR(200)",0,0],["CalLab","NVARCHAR(15)",0,0],["CustomerID","NVARCHAR(15)",0,0],["Compleate","BIT",1,0],["FinishDate","NVARCHAR(10)",0,0],["NextDate","NVARCHAR(10)",0,0],["ReceiveDate","NVARCHAR(10)",0,0],["IssueDate","NVARCHAR(10)",0,0],["InactiveDate","NVARCHAR(10)",0,0],["ReceiveTime","DATETIME",0,0],["ReceiveBy","NVARCHAR(80)",0,0],["IssueBy","NVARCHAR(80)",0,0],["ComebackBy","NVARCHAR(80)",0,0],["SendbackBy","NVARCHAR(80)",0,0],["Testpoint","NVARCHAR(200)",0,0],["CustomerRef","NVARCHAR(400)",0,0],["SparePart","MONEY",0,0],["CalValue","INT",0,0],["CalCost1","MONEY",0,0],["CalCost","MONEY",0,0],["CalHrs","INT",0,0],["CalInterval","INT",0,0],["CertNo","NVARCHAR(15)",0,0],["ProcedureNo","NVARCHAR(150)",0,0],["Status","NVARCHAR(20)",0,0],["Status1","NVARCHAR(30)",0,0],["Remark","NVARCHAR(150)",0,0],["Note","NVARCHAR(150)",0,0],["MainDate","NVARCHAR(10)",0,0],["NextMain","NVARCHAR(10)",0,0],["Expect","NVARCHAR(10)",0,0],["QuotationNo","NVARCHAR(20)",0,0],["PoNo","NVARCHAR(30)",0,0],["PoDate","NVARCHAR(10)",0,0],["Invoice","NVARCHAR(30)",0,0],["InvoiceDate","NVARCHAR(10)",0,0],["LabNo","NVARCHAR(2)",1,0],["ReportNo","NVARCHAR(15)",0,0],["ReportPath","NVARCHAR(255)",0,0],["Unit","NVARCHAR(50)",0,0],["TermPayment","NVARCHAR(120)",0,0],["DueDate","DATETIME",0,0],["AddressOffice","INT",0,0],["AccType","NVARCHAR(10)",0,0],["CertLocation","NVARCHAR(150)",1,0],["CustomerIDCert","NVARCHAR(15)",0,0],["UrgentCase","BIT",1,0],["ReturnCert","BIT",1,0],["Chk17025","BIT",1,0],["Chk17025_ANAB","BIT",1,0],["QuotationNoNew","NVARCHAR(20)",1,0],["Status_DT","DATETIME",0,0]]},{"name":"HistoryStand","pk":[],"cols":[["CertNo","NVARCHAR(15)",0,0],["History_No","NVARCHAR(10)",0,0],["StandID","NVARCHAR(15)",0,0]]},{"name":"tblPaymentV","pk":["PaymentNo"],"cols":[["PaymentNo","NVARCHAR(15)",1,0],["Date_out","DATETIME",1,0],["Subject","NVARCHAR(150)",1,0],["SuppID","NVARCHAR(15)",1,0],["TotalPrice","FLOAT",1,0],["GrandTotalPrice","FLOAT",1,0],["Cash","BIT",1,0],["Cheque","BIT",1,0],["Transfers","BIT",1,0],["Others","BIT",1,0],["OtherName","NVARCHAR(50)",1,0],["ChequeNo","NVARCHAR(20)",1,0],["ChequeDate","DATETIME",0,0],["BankName","NVARCHAR(50)",1,0],["BranchName","NVARCHAR(50)",1,0],["PaymentTerm","NVARCHAR(90)",1,0]]},{"name":"tblCommission","pk":[],"cols":[["CommNo","NVARCHAR(15)",1,0],["CustomerNo","NVARCHAR(25)",1,0],["ContactName","NVARCHAR(150)",1,0],["ContactMobile","NVARCHAR(80)",1,0],["Date_Out","DATETIME",1,0],["CommMonth","NVARCHAR(5)",1,0],["CondTypeNo","SMALLINT",1,0],["CommPercent","INT",1,0],["CommVat","FLOAT",1,0],["VatPrice","FLOAT",1,0],["CommPrice","FLOAT",1,0],["TotalPrice","FLOAT",1,0],["GrandTotalPrice","FLOAT",1,0],["BankName","NVARCHAR(100)",1,0],["BankAddress","NVARCHAR(20)",1,0],["AccountName","NVARCHAR(100)",1,0]]},{"name":"tblFormNo","pk":[],"cols":[["FormPONo","NCHAR(30)",0,0],["FormPRNo","NCHAR(30)",0,0],["FormRCNo","NCHAR(30)",0,0],["FormQNNo","NCHAR(30)",0,0],["FormDRNo","NCHAR(30)",0,0],["FormNo1","NCHAR(30)",0,0],["FormTINo","NCHAR(30)",0,0],["FormDONo","NCHAR(30)",0,0],["FormBILLNo","NCHAR(30)",0,0],["FormCRNo","NCHAR(30)",0,0],["FormNo2","NCHAR(30)",0,0],["FormNo3","NCHAR(30)",0,0],["FormNo4","NCHAR(30)",0,0],["FormNo5","NCHAR(30)",0,0],["FormNo6","NCHAR(30)",0,0],["FormNo7","NCHAR(30)",0,0],["FormNo8","NCHAR(30)",0,0],["FormNo9","NCHAR(30)",0,0]]},{"name":"tblStatus","pk":[],"cols":[["StatusNo","INT",1,0],["StatusName","NVARCHAR(30)",1,0]]},{"name":"Contact","pk":["ContactID"],"cols":[["ContactID","INT",0,1],["IDnumber","NVARCHAR(15)",0,0],["PrefixC","NVARCHAR(10)",0,0],["FirstName","NVARCHAR(150)",0,0],["LastName","NVARCHAR(120)",0,0],["PositionC","NVARCHAR(200)",0,0],["PhoneC","NVARCHAR(100)",0,0],["FaxC","NVARCHAR(100)",0,0],["PageC","NVARCHAR(100)",0,0],["EmailC","NVARCHAR(100)",0,0],["DefaultC","BIT",1,0]]},{"name":"Visuals","pk":[],"cols":[["CalCode","NVARCHAR(15)",0,0],["Item","INT",0,0],["Scope","NVARCHAR(50)",0,0],["Found","BIT",1,0],["Left","BIT",1,0],["Na","BIT",1,0],["Remarks","NTEXT",0,0],["Group","NVARCHAR(1)",0,0]]},{"name":"tblExpData","pk":[],"cols":[["ExpSubCode","NVARCHAR(3)",1,0],["ExpCode","NVARCHAR(6)",1,0],["ExpName","NVARCHAR(250)",1,0]]},{"name":"tblCommissionList","pk":[],"cols":[["CommNo","NVARCHAR(15)",0,0],["ItemNo","INT",0,0],["ListDate_Out","DATETIME",0,0],["Description","NVARCHAR(150)",0,0],["ListPrice","FLOAT",0,0]]},{"name":"tblCalendar","pk":[],"cols":[["WorkDate","DATETIME",1,0],["NameDate","NVARCHAR(50)",1,0]]},{"name":"tblExpMainData","pk":[],"cols":[["ExpMainCode","NVARCHAR(2)",1,0],["ExpMainName","NVARCHAR(150)",1,0]]},{"name":"tblCustomerRQ","pk":["CRID"],"cols":[["CRID","NVARCHAR(15)",1,0],["CRDate","DATETIME",0,0],["CustomerID","NVARCHAR(15)",0,0],["CRNo","NVARCHAR(15)",0,0],["QuotationNo","NVARCHAR(80)",0,0]]},{"name":"tblExpSubData","pk":[],"cols":[["ExpMainCode","NVARCHAR(2)",1,0],["ExpSubCode","NVARCHAR(3)",1,0],["ExpSubName","NVARCHAR(150)",1,0]]},{"name":"Technical","pk":["TechId"],"cols":[["TechId","NVARCHAR(5)",1,0],["TechName","NVARCHAR(100)",0,0],["TechCode","NVARCHAR(50)",0,0],["Position","NVARCHAR(80)",0,0],["Department","NVARCHAR(120)",0,0],["Phone","NVARCHAR(30)",0,0],["Pager","NVARCHAR(30)",0,0],["Picture","NVARCHAR(4)",0,0],["Home","NVARCHAR(250)",0,0],["City","NVARCHAR(80)",0,0],["HomePhone","NVARCHAR(50)",0,0],["ZipCode","NVARCHAR(12)",0,0],["HireDate","NVARCHAR(50)",0,0],["TerminatonDate","NVARCHAR(50)",0,0],["Note","NTEXT",0,0],["Assign","NTEXT",0,0],["BirthDate","NVARCHAR(50)",0,0],["Age","INT",0,0],["TechStatus","BIT",1,0],["UserGroupName","NVARCHAR(150)",1,0],["Nickname","NVARCHAR(50)",1,0],["TitleNameThai","NVARCHAR(8)",1,0],["NameThai","NVARCHAR(100)",1,0],["SurnameThai","NVARCHAR(100)",1,0],["PLID","INT",1,0],["PersonID","NVARCHAR(17)",1,0],["EmailAddress","NVARCHAR(35)",1,0]]},{"name":"tblFunction","pk":["FunctionName"],"cols":[["FunctionName","NVARCHAR(65)",1,0]]},{"name":"JobDescription","pk":[],"cols":[["TechId","NVARCHAR(5)",0,0],["ItemJob","INT",0,0],["Task","NVARCHAR(250)",0,0],["Period","NVARCHAR(100)",0,0],["Place","NVARCHAR(150)",0,0],["Position","NVARCHAR(90)",0,0]]},{"name":"tblCommmissionCond","pk":[],"cols":[["CondTypeNo","SMALLINT",1,0],["ConditionName","NVARCHAR(100)",1,0]]},{"name":"tblBankName","pk":[],"cols":[["BankName","NVARCHAR(100)",1,0]]},{"name":"tblCustomerRQItem","pk":[],"cols":[["CRID","NVARCHAR(15)",0,0],["ItemNo","INT",0,0],["Description","NVARCHAR(150)",0,0],["Manuf","NVARCHAR(150)",0,0],["Model","NVARCHAR(100)",0,0],["SerialNo","NVARCHAR(50)",0,0]]},{"name":"tblDeliveryItem","pk":[],"cols":[["IssueNo","NVARCHAR(15)",0,0],["ItemNo","INT",0,0],["Description","NVARCHAR(150)",0,0],["Manuf","NVARCHAR(150)",0,0],["Model","NVARCHAR(100)",0,0],["Unit","NVARCHAR(15)",0,0],["Range","NVARCHAR(150)",0,0],["Qty","INT",0,0],["UDiscount","MONEY",0,0],["UPrice","MONEY",0,0],["TPrice","MONEY",0,0]]},{"name":"tblTracking","pk":[],"cols":[["OrderNo","NVARCHAR(15)",1,0],["Rec_By","NVARCHAR(5)",1,0],["Rec_Date","DATETIME",0,0],["Rec_Note","NVARCHAR(150)",1,0],["Job_By","NVARCHAR(5)",1,0],["Job_Date","DATETIME",0,0],["Job_Note","NVARCHAR(150)",1,0],["Lab_By","NVARCHAR(5)",1,0],["Lab_Date","DATETIME",0,0],["Lab_Note","NVARCHAR(150)",1,0],["CS_By","NVARCHAR(5)",1,0],["CS_Date","DATETIME",0,0],["CS_Note","NVARCHAR(150)",1,0],["TM_By","NVARCHAR(5)",1,0],["TM_Date","DATETIME",0,0],["TM_Note","NVARCHAR(150)",1,0],["QA_By","NVARCHAR(5)",1,0],["QA_Date","DATETIME",0,0],["QA_Note","NVARCHAR(150)",1,0],["INV_By","NVARCHAR(5)",1,0],["INV_Date","DATETIME",0,0],["INV_Note","NVARCHAR(150)",1,0],["Rec_Finish","DATETIME",0,0],["Job_Finish","DATETIME",0,0],["Lab_Finish","DATETIME",0,0],["CS_Finish","DATETIME",0,0],["TM_Finish","DATETIME",0,0],["QA_Finish","DATETIME",0,0],["INV_Finish","DATETIME",0,0],["StepP01","DATETIME",0,0],["StepP02","DATETIME",0,0],["StepP03","DATETIME",0,0],["StepP04","DATETIME",0,0],["StepP05","DATETIME",0,0],["StepP06","DATETIME",0,0],["StepP07","DATETIME",0,0],["StepP08","DATETIME",0,0],["StepP09","DATETIME",0,0],["StepP10","DATETIME",0,0],["StepP11","DATETIME",0,0],["StepP12","DATETIME",0,0],["StepP","INT",1,0]]},{"name":"Product_R","pk":[],"cols":[["TechId","NVARCHAR(5)",0,0],["TechName","NVARCHAR(150)",0,0],["CustomerName","NVARCHAR(120)",0,0],["Description","NVARCHAR(150)",0,0],["FinishDate","DATETIME",0,0],["AssetNo","NVARCHAR(30)",0,0],["Workorder","NVARCHAR(15)",0,0],["JobNo","NVARCHAR(150)",0,0],["CalH","FLOAT",0,0],["RepairH","FLOAT",0,0],["AdjH","FLOAT",0,0],["MantH","FLOAT",0,0],["RH","FLOAT",0,0],["ProcH","FLOAT",0,0],["IdleHrs","FLOAT",0,0],["TranHrs","FLOAT",0,0],["ProcHrs","FLOAT",0,0],["NoteHrs","NTEXT",0,0],["NoteTran","NTEXT",0,0],["NoteProc","NTEXT",0,0]]},{"name":"tblPaymentVList","pk":[],"cols":[["PaymentNo","NVARCHAR(15)",1,0],["ItemNo","INT",0,0],["PoNo","NVARCHAR(15)",1,0],["InvNo","NVARCHAR(15)",1,0],["InvDate","DATETIME",0,0],["Description","NVARCHAR(150)",1,0],["Vat","FLOAT",1,0],["WHTax","FLOAT",1,0],["VatPrice","FLOAT",1,0],["WHPrice","FLOAT",1,0],["TotalPrice","FLOAT",1,0],["GrandTotalPrice","FLOAT",1,0]]},{"name":"tblCreditNote","pk":["CreditNoteNo"],"cols":[["CreditNoteNo","NVARCHAR(15)",1,0],["Date_out","DATETIME",1,0],["CustomerID","NVARCHAR(15)",1,0],["Subject","NVARCHAR(150)",1,0],["Vat","INT",0,0],["VatPrice","FLOAT",0,0],["DiffPrice","FLOAT",0,0],["TotalPrice","FLOAT",1,0],["GrandTotalPrice","FLOAT",0,0],["ApprovBy","NVARCHAR(5)",1,0],["RefDocNo","NVARCHAR(20)",1,0],["RefDate","DATETIME",0,0],["TotalPriceRef","FLOAT",1,0],["Notes","NVARCHAR(250)",0,0],["RefDocInv","BIT",1,0],["RefDocBill","BIT",1,0],["RefDocTaxInv","BIT",1,0]]},{"name":"tblDelivery","pk":["IssueNo"],"cols":[["IssueNo","NVARCHAR(15)",1,0],["IssueDate","DATETIME",0,0],["CustomerID","NVARCHAR(15)",0,0],["Vat","INT",0,0],["VatPrice","FLOAT",0,0],["TotalPrice","FLOAT",0,0],["GrandTotalPrice","FLOAT",0,0],["Note","NTEXT",0,0],["QuotationNo","NVARCHAR(80)",0,0],["ReceiveNo","NVARCHAR(80)",0,0],["RequestNo","NVARCHAR(80)",0,0],["Payment","NVARCHAR(150)",0,0],["DueDate","DATETIME",0,0],["ReceiveName","NVARCHAR(100)",0,0],["DeliveryName","NVARCHAR(100)",0,0],["Subject","NVARCHAR(150)",0,0],["DiscountPrice","FLOAT",0,0],["ChkDiscountUnit","BIT",1,0],["PayMoney","BIT",1,0],["WHTax","FLOAT",1,0],["Comments","NVARCHAR(150)",1,0],["Billed","BIT",1,0],["BilledDate","DATETIME",0,0]]},{"name":"tblUnit","pk":[],"cols":[["Unit","NVARCHAR(50)",0,0]]},{"name":"tblWHTax","pk":["WHID"],"cols":[["WHID","NVARCHAR(10)",1,0],["Date_wh","DATETIME",1,0],["DocumentNo","NVARCHAR(50)",0,0],["RunningNo","NVARCHAR(50)",1,0],["ListName","NVARCHAR(250)",1,0],["TaxNo","NVARCHAR(25)",1,0],["Vat","FLOAT",1,0],["VatType","NVARCHAR(100)",1,0],["VatPrice","FLOAT",1,0],["TotalPrice","FLOAT",1,0],["GrandTotalPrice","FLOAT",1,0],["VatTypeNo","INT",0,0],["PaymentType","INT",0,0],["DocNo","NVARCHAR(7)",0,0]]},{"name":"tblTrace","pk":[],"cols":[["Trace","NVARCHAR(50)",0,0],["TraceDetail","NVARCHAR(150)",0,0]]},{"name":"tblEExpenses","pk":["EExpID"],"cols":[["EExpID","NVARCHAR(10)",1,0],["Date_exp","DATETIME",1,0],["DocumentNo","NVARCHAR(50)",0,0],["Company","NVARCHAR(150)",0,0],["ListName","NVARCHAR(250)",1,0],["Prices","FLOAT",1,0],["ByName","NVARCHAR(50)",0,0],["Remarks","NVARCHAR(250)",0,0],["ExpCode","NVARCHAR(15)",1,0]]},{"name":"ProductR","pk":[],"cols":[["TechId","NVARCHAR(5)",0,0],["TechName","NVARCHAR(150)",0,0],["CustomerName","NVARCHAR(120)",0,0],["Description","NVARCHAR(150)",0,0],["FinishDate","NVARCHAR(10)",0,0],["AssetNo","NVARCHAR(30)",0,0],["Workorder","NVARCHAR(15)",0,0],["JobNo","NVARCHAR(150)",0,0],["CalH","FLOAT",0,0],["RepairH","FLOAT",0,0],["AdjH","FLOAT",0,0],["MantH","FLOAT",0,0],["RH","FLOAT",0,0],["ProcH","FLOAT",0,0],["IdleHrs","FLOAT",0,0],["TranHrs","FLOAT",0,0],["ProcHrs","FLOAT",0,0],["NoteHrs","NTEXT",0,0],["NoteTran","NTEXT",0,0],["NoteProc","NTEXT",0,0]]},{"name":"tblTermPayment","pk":[],"cols":[["TermPayment","NVARCHAR(120)",0,0]]},{"name":"tblIExpenses","pk":[],"cols":[["IExpID","NVARCHAR(10)",1,0],["Date_exp","DATETIME",0,0],["DocumentNo","NVARCHAR(50)",0,0],["SuppID","NVARCHAR(10)",1,0],["ListName","NVARCHAR(250)",1,0],["Vat","INT",1,0],["VatPrice","FLOAT",1,0],["TotalPrice","FLOAT",1,0],["GrandTotalPrice","FLOAT",1,0],["Remarks","NVARCHAR(250)",0,0],["ExpCode","NVARCHAR(15)",1,0]]},{"name":"tblSupplier","pk":[],"cols":[["SuppID","NVARCHAR(15)",0,0],["SuppName","NVARCHAR(120)",0,0],["Address","NVARCHAR(255)",0,0],["PhoneNo","NVARCHAR(35)",0,0],["FaxNo","NVARCHAR(35)",0,0],["ContactName","NVARCHAR(150)",0,0],["TaxNo","NVARCHAR(25)",0,0],["EmailNo","NVARCHAR(150)",0,0],["Cash","BIT",1,0],["Cheque","BIT",1,0],["Transfers","BIT",1,0],["Others","BIT",1,0],["OtherName","NVARCHAR(50)",1,0],["ChequeNo","NVARCHAR(50)",1,0],["BankName","NVARCHAR(50)",1,0],["BranchName","NVARCHAR(50)",1,0],["PaymentTerm","NVARCHAR(90)",1,0],["ChequeDate","DATETIME",0,0],["ChequeCost","FLOAT",1,0],["EmailNoAcc","NVARCHAR(150)",0,0],["SuppBranch","NVARCHAR(100)",1,0],["ContactAcc","NVARCHAR(150)",1,0],["AttachFile","NVARCHAR(150)",1,0],["Remarks","NVARCHAR(250)",0,0]]},{"name":"tblCreditNoteItem","pk":[],"cols":[["CreditNoteNo","NVARCHAR(15)",1,0],["ItemNo","INT",1,0],["Description","NVARCHAR(150)",1,0],["Manuf","NVARCHAR(150)",0,0],["Model","NVARCHAR(100)",0,0],["Unit","NVARCHAR(15)",0,0],["Range","NVARCHAR(150)",0,0],["Qty","INT",0,0],["PrevUprice","MONEY",1,0],["UPrice","MONEY",1,0],["TPrice","MONEY",1,0]]},{"name":"tblStandTrace","pk":[],"cols":[["StandID","NVARCHAR(15)",0,0],["Trace","NVARCHAR(50)",0,0]]},{"name":"AccessDescription","pk":[],"cols":[["Description","NVARCHAR(150)",0,0]]},{"name":"tblLabName","pk":[],"cols":[["LabNo","NVARCHAR(2)",1,0],["LabName","NVARCHAR(80)",1,0]]},{"name":"tblCurrency","pk":[],"cols":[["CurrencyID","NVARCHAR(1)",0,0],["Currency","NVARCHAR(10)",0,0]]},{"name":"tblResultType","pk":["ResultTypeID"],"cols":[["ResultTypeID","INT",0,1],["ResultType","NVARCHAR(50)",0,0]]},{"name":"tblCompany","pk":[],"cols":[["CompanyName","NVARCHAR(120)",0,0],["Address","NVARCHAR(255)",0,0],["Province","NVARCHAR(80)",0,0],["PostalNo","NVARCHAR(10)",0,0],["PhoneNo","NVARCHAR(35)",0,0],["FaxNo","NVARCHAR(35)",0,0],["ContactName","NVARCHAR(80)",0,0],["QuoContact","NVARCHAR(250)",0,0],["WebsiteName","NVARCHAR(250)",0,0],["EmailName","NVARCHAR(250)",0,0],["ProcedureUse","NTEXT",0,0],["ProcedureNotAcc","NTEXT",0,0],["ProcedureManual","NTEXT",0,0]]},{"name":"tblControlNo","pk":["ControlID"],"cols":[["ControlID","NVARCHAR(10)",1,0],["ControlNo","NVARCHAR(30)",1,0],["Date_exp","DATETIME",1,0],["Description","NVARCHAR(150)",1,0],["MasterForm1","NVARCHAR(200)",1,0],["MasterForm2","NVARCHAR(200)",1,0],["MasterForm3","NVARCHAR(200)",1,0],["MasterForm4","NVARCHAR(200)",1,0]]},{"name":"tblResult","pk":["ResultID"],"cols":[["ResultID","INT",0,1],["ResultName","NVARCHAR(80)",0,0],["ResultTypeID","INT",0,0]]},{"name":"tblCheque","pk":["CQNo"],"cols":[["CQNo","NVARCHAR(10)",1,0],["Date_out","DATETIME",0,0],["SuppID","NVARCHAR(15)",0,0],["TotalPrice","FLOAT",0,0],["ChequeNo","NVARCHAR(10)",0,0]]},{"name":"tblBillList","pk":[],"cols":[["BillNo","NVARCHAR(15)",0,0],["ItemNo","INT",0,0],["InvoiceNo","NVARCHAR(15)",0,0],["InvoiceDate","DATETIME",0,0],["Description","NVARCHAR(150)",0,0],["TotalPrice","FLOAT",0,0],["GrandTotalPrice","FLOAT",0,0],["WHTax","FLOAT",1,0]]},{"name":"tblPayable","pk":["PayableID"],"cols":[["PayableID","NVARCHAR(15)",1,0],["Date_out","DATETIME",1,0],["TaxInvNo","NVARCHAR(30)",1,0],["SuppID","NVARCHAR(15)",1,0],["ExpCode","NVARCHAR(15)",1,0],["Vat","INT",1,0],["VatPrice","FLOAT",1,0],["TotalPrice","FLOAT",1,0],["DiscountPrice","FLOAT",1,0],["GrandTotalPrice","FLOAT",1,0],["DueDate","DATETIME",1,0],["Remarks","NVARCHAR(250)",0,0],["PoNo","NVARCHAR(15)",1,0],["WHTax","FLOAT",1,0],["WHPrice","FLOAT",1,0]]},{"name":"tblCustomerReq","pk":["CustomerID"],"cols":[["CustomerID","NVARCHAR(15)",1,0],["Cert00","BIT",1,0],["Cert01","BIT",1,0],["Cert02","BIT",1,0],["Cert03","BIT",1,0],["Cert04","BIT",1,0],["Cert05","BIT",1,0],["Cert06","BIT",1,0],["Cert07","BIT",1,0],["Data00","BIT",1,0],["Data01","BIT",1,0],["Data02","BIT",1,0],["Data03","BIT",1,0],["Data04","BIT",1,0],["Data05","BIT",1,0],["Data06","BIT",1,0],["Data07","BIT",1,0],["Data08","BIT",1,0],["Data09","BIT",1,0],["Data10","BIT",1,0],["Data11","BIT",1,0],["Onsite00","BIT",1,0],["Onsite01","BIT",1,0],["Onsite02","BIT",1,0],["Onsite03","BIT",1,0],["Onsite04","BIT",1,0],["Onsite05","BIT",1,0],["Sticker00","BIT",1,0],["Sticker01","BIT",1,0],["Sticker02","BIT",1,0],["Sticker03","BIT",1,0],["Sticker04","BIT",1,0],["Sticker05","BIT",1,0],["Sticker06","BIT",1,0],["Sticker07","BIT",1,0],["Special00","BIT",1,0],["Special01","BIT",1,0],["Special02","BIT",1,0],["Special03","BIT",1,0],["Special04","BIT",1,0],["Special05","BIT",1,0],["Special06","BIT",1,0],["Special07","BIT",1,0],["Special08","BIT",1,0],["Special09","BIT",1,0],["Special10","BIT",1,0],["Special11","BIT",1,0],["Package00","BIT",1,0],["Package01","BIT",1,0],["Package02","BIT",1,0],["Package03","BIT",1,0],["Package04","BIT",1,0],["Package05","BIT",1,0],["CertReq","NVARCHAR(1500)",1,0],["DataReq","NVARCHAR(1500)",1,0],["OnsiteReq","NVARCHAR(1500)",1,0],["StickerReq","NVARCHAR(1500)",1,0],["SpecialReq","NVARCHAR(1500)",1,0],["PackageReq","NVARCHAR(1500)",1,0],["AttachFile1","NVARCHAR(500)",1,0],["AttachFile2","NVARCHAR(500)",1,0],["MemberID","NVARCHAR(20)",1,0],["MemReg","BIT",1,0]]},{"name":"tblAddressReport","pk":[],"cols":[["CompanyNameThai","NCHAR(150)",0,0],["CompanyNameEng","NCHAR(150)",0,0],["Address1Thai","NCHAR(100)",0,0],["Address2Thai","NCHAR(100)",0,0],["Address3Thai","NCHAR(100)",0,0],["Address1Eng","NCHAR(100)",0,0],["Address2Eng","NCHAR(100)",0,0],["Address3Eng","NCHAR(100)",0,0],["TaxNo","NCHAR(100)",0,0],["Address1Thai1","NCHAR(100)",0,0],["Address2Thai1","NCHAR(100)",0,0],["Address3Thai1","NCHAR(100)",0,0],["Address1Eng1","NCHAR(100)",0,0],["Address2Eng1","NCHAR(100)",0,0],["Address3Eng1","NCHAR(100)",0,0],["ChkDefault","INT",0,0],["ChkDefault1","INT",0,0]]},{"name":"TblRecall","pk":[],"cols":[["CalCode","NVARCHAR(15)",0,0]]},{"name":"tblBonus","pk":[],"cols":[["NetIncome","NVARCHAR(150)",1,0],["BonusCondition","NVARCHAR(150)",1,0]]},{"name":"tblBill","pk":[],"cols":[["BillNo","NVARCHAR(15)",0,0],["Date_out","DATETIME",0,0],["CustomerID","NVARCHAR(15)",0,0],["DiscountPrice","FLOAT",0,0],["Vat","INT",0,0],["VatPrice","FLOAT",0,0],["TotalPrice","FLOAT",0,0],["GrandTotalPrice","FLOAT",0,0],["Note","NTEXT",0,0],["RefNo","NVARCHAR(150)",0,0],["BillPerson","NVARCHAR(100)",0,0],["Date_bill","DATETIME",0,0]]},{"name":"ScheduleStandard","pk":[],"cols":[["Item","NVARCHAR(5)",0,0],["CalCode","NVARCHAR(15)",0,0],["ExpectedDate","NVARCHAR(10)",0,0],["Corrospond","NVARCHAR(100)",0,0],["Replacement","NVARCHAR(100)",0,0],["Ship","NVARCHAR(100)",0,0],["Authority","NVARCHAR(100)",0,0],["ContactName","NVARCHAR(60)",0,0],["ContactPhone","NVARCHAR(50)",0,0],["Purchase","NVARCHAR(20)",0,0],["National","NVARCHAR(10)",0,0],["Note","NTEXT",0,0],["NoteAuthority","NTEXT",0,0],["NoteCorrospond","NTEXT",0,0],["NoteReplacement","NTEXT",0,0],["NoteExpectedDate","NTEXT",0,0]]},{"name":"tblHistoryEnv","pk":[],"cols":[["LabID","INT",1,0],["LabName","NVARCHAR(4)",1,0],["TempA","INT",1,0],["TempB","INT",1,0],["RhA","INT",1,0],["RhB","INT",1,0]]},{"name":"Description_BK","pk":[],"cols":[["DescriptionId","NVARCHAR(9)",1,0],["DescriptionName","NVARCHAR(255)",0,0],["Price","MONEY",0,0]]},{"name":"tblPL","pk":[],"cols":[["PLID","INT",1,0],["PLName","NVARCHAR(150)",1,0]]},{"name":"SubDescription","pk":[],"cols":[["DescriptionId","NVARCHAR(8)",0,0],["Manufecturer","NVARCHAR(80)",0,0],["Model","NVARCHAR(70)",0,0],["Range","NVARCHAR(120)",0,0],["TestPoint","NVARCHAR(120)",0,0],["Prices","MONEY",0,0],["PartGroup","NCHAR(10)",0,0],["Cert_Normal","BIT",0,0],["Cert_17025","BIT",0,0],["Accreditation_LAB","BIT",0,0],["Accreditation_ONSITE","BIT",0,0],["Sub_Contractor","BIT",0,0],["ProcedureNo","NVARCHAR(150)",0,0],["Cert_17025_ANAB","BIT",1,0],["LabNo","NVARCHAR(2)",1,0]]},{"name":"Procedure","pk":[],"cols":[["ProcedureID","NVARCHAR(15)",0,0],["ProcedureName","NVARCHAR(200)",0,0],["Revission","NVARCHAR(80)",0,0],["RevissionDate","NVARCHAR(10)",0,0],["Approved","NVARCHAR(80)",0,0],["Design","NVARCHAR(80)",0,0],["DocumentPath","NVARCHAR(150)",0,0],["ProcedureType","BIT",1,0],["Note","NTEXT",0,0]]},{"name":"tblSalary","pk":[],"cols":[["SalaryID","NVARCHAR(15)",1,0],["TechId","NVARCHAR(5)",1,0],["SalaryDate","DATETIME",1,0],["SalaryMonth","NVARCHAR(5)",0,0],["PositionType","SMALLINT",1,0],["Salary","FLOAT",1,0],["Compensation","FLOAT",1,0],["Gasoline","FLOAT",1,0],["Breakage","FLOAT",1,0],["Mobile","FLOAT",1,0],["Overtime","FLOAT",1,0],["Allowance","FLOAT",1,0],["Specials","FLOAT",1,0],["Bonus","FLOAT",1,0],["TotalSale","FLOAT",1,0],["DeductComm","FLOAT",1,0],["Deduct","FLOAT",1,0],["Commission","FLOAT",1,0],["HourWork","FLOAT",0,0],["SocialVat","FLOAT",1,0],["TotalReceive","FLOAT",1,0],["WithHolding","FLOAT",1,0],["Social","FLOAT",1,0],["TotalExpense","FLOAT",1,0],["GrandTotal","FLOAT",1,0],["Others","FLOAT",1,0],["DeductPercent","INT",1,0],["DeductSalary","FLOAT",1,0],["FullMonth","BIT",1,0],["DateOfWork","FLOAT",1,0],["SalaryForOT","FLOAT",1,0],["SalaryFix","FLOAT",1,0],["StudentLoan","FLOAT",1,0],["EmployeeFund","FLOAT",1,0],["EmployeeFundPercent","FLOAT",1,0],["SalaryBase","FLOAT",1,0],["WH3Perc","BIT",1,0]]},{"name":"SubDescription_BK","pk":[],"cols":[["DescriptionId","NVARCHAR(8)",0,0],["Manufecturer","NVARCHAR(80)",0,0],["Model","NVARCHAR(70)",0,0],["Range","NVARCHAR(120)",0,0],["TestPoint","NVARCHAR(120)",0,0],["Prices","MONEY",0,0],["PartGroup","NCHAR(10)",0,0],["Cert_Normal","BIT",0,0],["Cert_17025","BIT",0,0],["Accreditation_LAB","BIT",0,0],["Accreditation_ONSITE","BIT",0,0],["Sub_Contractor","BIT",0,0],["ProcedureNo","NVARCHAR(150)",0,0]]},{"name":"tblPR","pk":[],"cols":[["PRNo","NVARCHAR(10)",0,0],["Date_out","DATETIME",0,0],["SuppID","NVARCHAR(15)",0,0],["Vat","INT",0,0],["VatPrice","FLOAT",0,0],["TotalPrice","FLOAT",0,0],["GrandTotalPrice","FLOAT",0,0],["Discount","FLOAT",0,0],["FixAsset","BIT",1,0],["Expense","BIT",1,0],["Others","BIT",1,0],["OtherName","NVARCHAR(50)",0,0],["QuantationNo","NVARCHAR(30)",0,0],["PRTo","NVARCHAR(150)",0,0],["PRFrom","NVARCHAR(150)",0,0],["Department","NVARCHAR(150)",0,0],["ExpCode","NVARCHAR(15)",1,0],["RequestID","NVARCHAR(5)",1,0],["AttachFileName","NVARCHAR(200)",1,0],["PONo","NVARCHAR(10)",1,0],["DepartmentAppvID","NVARCHAR(5)",1,0],["Date_TMAppv","DATETIME",0,0],["DepartmentAppv","BIT",0,0],["LabAppvID","NVARCHAR(5)",1,0],["Date_LMAppv","DATETIME",0,0],["LabAppv","BIT",0,0],["PurchaseAppvID","NVARCHAR(5)",1,0],["Date_PMAppv","DATETIME",0,0],["PurchaseAppv","BIT",0,0],["MDGM_Sign","BIT",0,0],["MDAppvID","NVARCHAR(5)",1,0],["Date_MDAppv","DATETIME",0,0],["MDAppv","BIT",0,0]]},{"name":"Mantan","pk":[],"cols":[["Item","NVARCHAR(3)",0,0],["CalCode","NVARCHAR(15)",0,0],["MDate","NVARCHAR(10)",0,0],["NMDate","NVARCHAR(10)",0,0],["Scope","NTEXT",0,0],["Result","NTEXT",0,0],["Remark","NTEXT",0,0],["SuppID","NVARCHAR(15)",1,0],["MCost","FLOAT",1,0]]},{"name":"tblUserGroup","pk":[],"cols":[["UserGroupName","NVARCHAR(150)",1,0]]}],"rels":[["QuotationItem","QuotationNo","Quotation","QuotationNo","d"],["QuotationRemark","QuotationNo","Quotation","QuotationNo","d"],["QuotationItem","QuotationID","Quotation","QuotationID","i"],["QuotationRemark","QuotationID","Quotation","QuotationID","i"],["OrderConfirm","QuotationID","Quotation","QuotationID","i"],["QuotationCost","QuotationNo","Quotation","QuotationNo","1"],["Quotation","Currency","tblCurrency","Currency","i"],["Quotation","TechnicalID","Technical","TechId","i"],["QuotationItem","DescriptionId","Description","DescriptionId","i"],["Customer","TechId","Technical","TechId","i"],["tblCustomerReq","CustomerID","Customer","CustomerID","1"],["tblCustomerRQ","CustomerID","Customer","CustomerID","i"],["tblCustomerRQ","QuotationNo","Quotation","QuotationNo","i"],["tblCustomerRQItem","CRID","tblCustomerRQ","CRID","i"],["tblCommission","CustomerNo","Customer","CustomerNo","i"],["tblCommissionList","CommNo","tblCommission","CommNo","i"],["tblCommission","CondTypeNo","tblCommmissionCond","CondTypeNo","i"],["Instrument","CustomerID","Customer","CustomerID","i"],["Instrument","QuotationNo","Quotation","QuotationNo","i"],["Instrument","IssueNo","tblDelivery","IssueNo","i"],["Instrument","CertNo","History","CertNo","i"],["Instrument","LabNo","tblLabName","LabNo","i"],["Instrument","ReportNo","Report","ReportNo","i"],["Instrument","ProcedureNo","Procedure","ProcedureID","i"],["Instrument","Manuf","Manufac","Manuf","i"],["Instrument","Unit","tblUnit","Unit","i"],["Instrument","TermPayment","tblTermPayment","TermPayment","i"],["Workorder","OrderNo","Instrument","OrderNo","i"],["Workorder","TechId","Technical","TechId","i"],["tblTracking","OrderNo","Instrument","OrderNo","1"],["History","OrderNo","Instrument","OrderNo","i"],["History","CustomerID","Customer","CustomerID","i"],["History","TechID","Technical","TechId","i"],["History","ReportID","Report","ReportNo","i"],["History","ProcedureID","Procedure","ProcedureID","i"],["HistoryStand","CertNo","History","CertNo","i"],["HistoryStand","StandID","Stands","CalCode","i"],["tblResult","ResultTypeID","tblResultType","ResultTypeID","i"],["Stands","DescriptionId","Description","DescriptionId","i"],["Stands","CustomerId","Customer","CustomerID","i"],["Stands","Manuf","Manufac","Manuf","i"],["tblStandTrace","StandID","Stands","CalCode","i"],["tblStandTrace","Trace","tblTrace","Trace","i"],["Acces","CalCode","Stands","CalCode","i"],["Accessories","CalCode","Stands","CalCode","i"],["Visuals","CalCode","Stands","CalCode","i"],["CheckList","CalCode","Stands","CalCode","i"],["CheckList","IssueNo","tblDelivery","IssueNo","i"],["Mantan","CalCode","Stands","CalCode","i"],["Mantan","SuppID","tblSupplier","SuppID","i"],["ScheduleStandard","CalCode","Stands","CalCode","i"],["TblRecall","CalCode","Stands","CalCode","i"],["SubDescription","DescriptionId","Description","DescriptionId","i"],["SubDescription","LabNo","tblLabName","LabNo","i"],["SubDescription","ProcedureNo","Procedure","ProcedureID","i"],["tblDelivery","CustomerID","Customer","CustomerID","i"],["tblDelivery","QuotationNo","Quotation","QuotationNo","i"],["tblDeliveryItem","IssueNo","tblDelivery","IssueNo","i"],["tblInvoice","CustomerID","Customer","CustomerID","i"],["tblInvoice","BankName","tblBankName","BankName","i"],["tblInvoiceList","InvoiceNo","tblInvoice","InvoiceNo","i"],["tblInvoiceList","OrderNo","Instrument","OrderNo","i"],["tblInvoiceItem","InvoiceNo","tblInvoice","InvoiceNo","i"],["tblBill","CustomerID","Customer","CustomerID","i"],["tblBillList","BillNo","tblBill","BillNo","i"],["tblBillList","InvoiceNo","tblInvoice","InvoiceNo","i"],["tblCreditNote","CustomerID","Customer","CustomerID","i"],["tblCreditNoteItem","CreditNoteNo","tblCreditNote","CreditNoteNo","i"],["PassWord","TechID","Technical","TechId","i"],["Technical","PLID","tblPL","PLID","i"],["Technical","UserGroupName","tblUserGroup","UserGroupName","i"],["tbEducation","TechId","Technical","TechId","i"],["Traning","TechId","Technical","TechId","i"],["JobDescription","TechId","Technical","TechId","i"],["tblSalary","TechId","Technical","TechId","i"],["Product_R","TechId","Technical","TechId","i"],["ProductR","TechId","Technical","TechId","i"],["Product_R","JobNo","JobNumber","JobNo","i"],["ProductR","JobNo","JobNumber","JobNo","i"],["tblPR","SuppID","tblSupplier","SuppID","i"],["tblPR","ExpCode","tblExpData","ExpCode","i"],["tblPRList","PRNo","tblPR","PRNo","i"],["tblPO","SuppID","tblSupplier","SuppID","i"],["tblPO","PRNo","tblPR","PRNo","i"],["tblPOList","PONo","tblPO","PONo","i"],["tblPayable","SuppID","tblSupplier","SuppID","i"],["tblPayable","PoNo","tblPO","PONo","i"],["tblPayable","ExpCode","tblExpData","ExpCode","i"],["tblPaymentV","SuppID","tblSupplier","SuppID","i"],["tblPaymentVList","PaymentNo","tblPaymentV","PaymentNo","i"],["tblPaymentVList","PoNo","tblPO","PONo","i"],["tblCheque","SuppID","tblSupplier","SuppID","i"],["tblIExpenses","SuppID","tblSupplier","SuppID","i"],["tblIExpenses","ExpCode","tblExpData","ExpCode","i"],["tblEExpenses","ExpCode","tblExpData","ExpCode","i"],["tblExpSubData","ExpMainCode","tblExpMainData","ExpMainCode","i"],["tblExpData","ExpSubCode","tblExpSubData","ExpSubCode","i"],["tblSubContact","SuppID","tblSupplier","SuppID","i"],["tblSubContactList","SubContNo","tblSubContact","SubContNo","i"],["tblSubContactList","OrderNo","Instrument","OrderNo","i"],["tblSupplier","BankName","tblBankName","BankName","i"]]};
+const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const CARD_W=256, HEAD=44, ROW=26, MAXROWS=7;
+const T={}, DOM={};
+DATA.domains.forEach((d,i)=>{d.idx=i;DOM[d.id]=d;d.tables.forEach(t=>{})});
+DATA.tables.forEach(t=>{T[t.name]=Object.assign(t,{out:[],inc:[]})});
+DATA.domains.forEach(d=>d.tables.forEach(n=>T[n].dom=d));
+const RELS=DATA.rels.map(([c,cc,p,pc,k],i)=>{const r={i,c,cc,p,pc,k,decl:k[0]==='d',one:k.includes('1')};T[c].out.push(r);T[p].inc.push(r);return r});
+
+/* ---------- which columns to show on a card ---------- */
+for(const t of Object.values(T)){
+  const keyCols=new Set([...t.pk,...t.out.map(r=>r.cc),...t.inc.map(r=>r.pc)]);
+  let shown=t.cols.filter(c=>keyCols.has(c[0]));
+  if(shown.length>MAXROWS) shown=shown.slice(0,MAXROWS);
+  for(const c of t.cols){ if(shown.length>=Math.min(MAXROWS,Math.max(3,shown.length))) break; if(!shown.includes(c)) shown.push(c); }
+  t.shown=shown; t.more=t.cols.length-shown.length;
+  t.h=HEAD+shown.length*ROW+(t.more?ROW:0)+1;
+  t.rowOf=c=>{const i=shown.findIndex(x=>x[0]===c);return i<0?null:i};
+}
+
+/* ---------- layout: domains as zones on a 3-column grid, masonry inside ---------- */
+const PAD=32, ZHEAD=86, GX=26, GY=22, ZG=72, ZCOLS=3;
+const ZONES=[];
+DATA.domains.forEach(d=>{
+  const ts=d.tables.map(n=>T[n]).sort((a,b)=>(b.out.length+b.inc.length)-(a.out.length+a.inc.length));
+  const nc=ts.length<=4?2:ts.length<=9?3:4;
+  const colH=Array(nc).fill(0);
+  ts.forEach(t=>{const c=colH.indexOf(Math.min(...colH));t.lx=c*(CARD_W+GX);t.ly=colH[c];colH[c]+=t.h+GY});
+  ZONES.push({d,w:nc*CARD_W+(nc-1)*GX+PAD*2,h:Math.max(...colH)-GY+ZHEAD+PAD,ts});
+});
+let y=0;
+for(let r=0;r<ZONES.length;r+=ZCOLS){
+  const row=ZONES.slice(r,r+ZCOLS), rh=Math.max(...row.map(z=>z.h));
+  let x=0; row.forEach(z=>{z.x=x;z.y=y;z.h=rh;x+=z.w+ZG});
+  y+=rh+ZG;
+}
+// equalize zone widths per column for a tidy grid
+for(let c=0;c<ZCOLS;c++){
+  const col=ZONES.filter((z,i)=>i%ZCOLS===c), w=Math.max(...col.map(z=>z.w));
+  col.forEach(z=>{z.innerOff=(w-z.w)/2;z.w=w});
+}
+for(let c=1;c<ZCOLS;c++) ZONES.filter((z,i)=>i%ZCOLS===c).forEach(z=>{const left=ZONES[ZONES.indexOf(z)-1];z.x=left.x+left.w+ZG});
+ZONES.forEach(z=>z.ts.forEach(t=>{t.x=z.x+PAD+z.innerOff+t.lx;t.y=z.y+ZHEAD+t.ly}));
+const WORLD={w:Math.max(...ZONES.map(z=>z.x+z.w)),h:Math.max(...ZONES.map(z=>z.y+z.h))};
+
+/* ---------- render ---------- */
+const world=$('#world'), svg=$('#edges');
+ZONES.forEach(z=>{
+  const el=document.createElement('div');el.className='zone';el.style.cssText=`left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px;--c:${z.d.color}`;
+  el.innerHTML=`<div class="zone-head"><span class="zone-idx">${String(z.d.idx+1).padStart(2,'0')}</span><span class="zone-name">${esc(z.d.name)}</span><span class="zone-th th">${esc(z.d.th)}</span></div>`;
+  z.el=el;world.insertBefore(el,svg);
+});
+for(const t of Object.values(T)){
+  const el=document.createElement('div');el.className='card';el.style.setProperty('--c',t.dom.color);
+  const fk=new Set(t.out.map(r=>r.cc)), ref=new Set(t.inc.map(r=>r.pc));
+  const badge=c=>t.pk.includes(c)?'<span class="kb pk">PK</span>':fk.has(c)?'<span class="kb fk">FK</span>':ref.has(c)?'<span class="kb ref">REF</span>':'<span class="kb no"></span>';
+  el.innerHTML=`<div class="card-h"><span class="dot"></span><span class="card-n" title="${esc(t.name)}">${esc(t.name)}</span><span class="card-cnt">${t.cols.length}</span></div>`+
+    t.shown.map(c=>`<div class="row${t.pk.includes(c[0])||fk.has(c[0])||ref.has(c[0])?' k':''}" data-c="${esc(c[0])}">${badge(c[0])}<span class="cn">${esc(c[0])}</span><span class="ct">${esc(c[1].toLowerCase())}</span></div>`).join('')+
+    (t.more?`<div class="row more">+ ${t.more} more columns</div>`:'');
+  t.el=el;world.appendChild(el);place(t);
+  el.addEventListener('pointerenter',()=>hover(t));el.addEventListener('pointerleave',()=>hover(null));
+  el.addEventListener('click',e=>{if(!dragMoved)select(t)});
+  el.querySelector('.card-h').addEventListener('pointerdown',e=>startDrag(e,t));
+}
+function place(t){t.el.style.left=t.x+'px';t.el.style.top=t.y+'px'}
+svg.setAttribute('width',WORLD.w);svg.setAttribute('height',WORLD.h);
+
+const NS='http://www.w3.org/2000/svg';
+const defs=document.createElementNS(NS,'defs');svg.appendChild(defs);
+RELS.forEach(r=>{
+  const g=document.createElementNS(NS,'g');g.setAttribute('class','eg'+(r.decl?' decl':''));
+  const grad=document.createElementNS(NS,'linearGradient');grad.id='g'+r.i;grad.setAttribute('gradientUnits','userSpaceOnUse');
+  grad.innerHTML=`<stop offset="0" stop-color="${T[r.c].dom.color}"/><stop offset="1" stop-color="${T[r.p].dom.color}"/>`;defs.appendChild(grad);
+  const p=document.createElementNS(NS,'path');p.setAttribute('class','e');
+  const m=document.createElementNS(NS,'path');m.setAttribute('class','e-m');
+  g.append(p,m);svg.appendChild(g);r.g=g;r.path=p;r.mark=m;r.grad=grad;
+  if(r.decl){p.setAttribute('stroke','#2F9E73');m.setAttribute('stroke','#2F9E73')}
+  else{p.setAttribute('stroke',`url(#g${r.i})`);m.setAttribute('stroke','var(--text-2)')}
+});
+function anchor(t,col){const i=t.rowOf(col);return t.y+HEAD+(i==null?-HEAD/2:i*ROW+ROW/2)}
+function drawEdges(only){
+  for(const r of RELS){
+    if(only&&r.c!==only&&r.p!==only) continue;
+    const c=T[r.c],p=T[r.p];
+    const cy=anchor(c,r.cc), py=anchor(p,r.pc);
+    let sx,sd,ex,ed;
+    if(c.x+CARD_W+30<p.x){sx=c.x+CARD_W;sd=1;ex=p.x;ed=-1}
+    else if(p.x+CARD_W+30<c.x){sx=c.x;sd=-1;ex=p.x+CARD_W;ed=1}
+    else{sx=c.x+CARD_W;sd=1;ex=p.x+CARD_W;ed=1}
+    const off=sd===ed?60+Math.abs(py-cy)*.12+Math.abs(ex-sx)*.5:Math.max(50,Math.abs(ex-sx)*.45);
+    const s0=sx+sd*14, e0=ex+ed*14;
+    r.path.setAttribute('d',`M${sx} ${cy}H${s0}C${s0+sd*off} ${cy} ${e0+ed*off} ${py} ${e0} ${py}H${ex}`);
+    const one=r.one;
+    let m=one?`M${sx+sd*6} ${cy-5}V${cy+5}`:`M${sx+sd*11} ${cy}L${sx} ${cy-5.5}M${sx+sd*11} ${cy}L${sx} ${cy+5.5}`;
+    m+=`M${ex+ed*6} ${py-5}V${py+5}M${ex+ed*10} ${py-5}V${py+5}`;
+    r.mark.setAttribute('d',m);
+    r.grad.setAttribute('x1',sx);r.grad.setAttribute('y1',cy);r.grad.setAttribute('x2',ex);r.grad.setAttribute('y2',py);
+  }
+}
+drawEdges();
+
+/* ---------- pan & zoom ---------- */
+const stage=$('#stage');let V={x:0,y:0,k:1};
+function apply(){world.style.transform=`translate(${V.x}px,${V.y}px) scale(${V.k})`;$('#zoomv').textContent=Math.round(V.k*100)+'%';drawMini()}
+function zoomAt(k,cx,cy){k=Math.min(2.2,Math.max(.12,k));V.x=cx-(cx-V.x)*k/V.k;V.y=cy-(cy-V.y)*k/V.k;V.k=k;apply()}
+function viewRect(){const narrow=innerWidth<=820;return{l:narrow?12:322,t:narrow?80:92,r:innerWidth-(document.body.classList.contains('insp-open')&&!narrow?392:16),b:innerHeight-(narrow?76:70)}}
+function fitTo(x,y,w,h,max=1,anim=true){
+  const v=viewRect(),k=Math.min(max,(v.r-v.l)/w,(v.b-v.t)/h)*.94;
+  animateTo({k,x:v.l+((v.r-v.l)-w*k)/2-x*k,y:v.t+((v.b-v.t)-h*k)/2-y*k},anim);
+}
+let animId;
+function animateTo(to,anim=true){
+  cancelAnimationFrame(animId);if(!anim){V=to;apply();return}
+  const from={...V},t0=performance.now(),D=520;
+  const step=now=>{const p=Math.min(1,(now-t0)/D),e=1-Math.pow(1-p,4);
+    V={x:from.x+(to.x-from.x)*e,y:from.y+(to.y-from.y)*e,k:from.k+(to.k-from.k)*e};apply();if(p<1)animId=requestAnimationFrame(step)};
+  animId=requestAnimationFrame(step);
+}
+const fitAll=(a=true)=>fitTo(0,0,WORLD.w,WORLD.h,1,a);
+stage.addEventListener('wheel',e=>{e.preventDefault();cancelAnimationFrame(animId);
+  if(e.ctrlKey||e.metaKey) zoomAt(V.k*Math.exp(-e.deltaY*.01),e.clientX,e.clientY);
+  else{V.x-=e.deltaX;V.y-=e.deltaY;apply()}},{passive:false});
+let pan=null;
+stage.addEventListener('pointerdown',e=>{if(e.target.closest('.card'))return;cancelAnimationFrame(animId);pan={x:e.clientX,y:e.clientY,vx:V.x,vy:V.y,moved:false};stage.setPointerCapture(e.pointerId);stage.classList.add('panning')});
+stage.addEventListener('pointermove',e=>{if(!pan)return;const dx=e.clientX-pan.x,dy=e.clientY-pan.y;if(Math.abs(dx)+Math.abs(dy)>3)pan.moved=true;V.x=pan.vx+dx;V.y=pan.vy+dy;apply()});
+stage.addEventListener('pointerup',e=>{if(pan&&!pan.moved)select(null);pan=null;stage.classList.remove('panning')});
+const center=()=>({x:innerWidth/2,y:innerHeight/2});
+$('#zin').onclick=()=>zoomAt(V.k*1.25,center().x,center().y);
+$('#zout').onclick=()=>zoomAt(V.k/1.25,center().x,center().y);
+$('#fit').onclick=$('#zoomv').onclick=()=>fitAll();
+
+/* ---------- drag cards ---------- */
+let dragMoved=false;
+function startDrag(e,t){
+  e.stopPropagation();dragMoved=false;const sx=e.clientX,sy=e.clientY,ox=t.x,oy=t.y,h=e.currentTarget;h.setPointerCapture(e.pointerId);
+  const mv=ev=>{const dx=(ev.clientX-sx)/V.k,dy=(ev.clientY-sy)/V.k;if(Math.abs(dx)+Math.abs(dy)>2)dragMoved=true;t.x=ox+dx;t.y=oy+dy;place(t);drawEdges(t.name)};
+  const up=()=>{h.removeEventListener('pointermove',mv);h.removeEventListener('pointerup',up);drawMini();setTimeout(()=>dragMoved=false,0)};
+  h.addEventListener('pointermove',mv);h.addEventListener('pointerup',up);
+}
+
+/* ---------- highlight & selection ---------- */
+let selected=null;
+function lightUp(t){
+  document.querySelectorAll('.lit').forEach(e=>e.classList.remove('lit'));
+  document.querySelectorAll('.row.hl').forEach(e=>e.classList.remove('hl'));
+  if(!t){world.classList.remove('dim');return}
+  world.classList.add('dim');t.el.classList.add('lit');
+  for(const r of [...t.out,...t.inc]){
+    r.g.classList.add('lit');T[r.c].el.classList.add('lit');T[r.p].el.classList.add('lit');
+    svg.appendChild(r.g);
+    T[r.c].el.querySelector(`.row[data-c="${CSS.escape(r.cc)}"]`)?.classList.add('hl');
+    T[r.p].el.querySelector(`.row[data-c="${CSS.escape(r.pc)}"]`)?.classList.add('hl');
+  }
+}
+function hover(t){lightUp(t||selected)}
+function select(t,focus){
+  if(selected)selected.el.classList.remove('sel');
+  selected=t;lightUp(t);
+  document.querySelectorAll('.ti').forEach(b=>b.classList.toggle('sel',!!t&&b.dataset.t===t.name));
+  if(!t){$('#insp').classList.remove('open');document.body.classList.remove('insp-open');drawMini();return}
+  t.el.classList.add('sel');renderInsp(t);$('#insp').classList.add('open');document.body.classList.add('insp-open');
+  if(focus){const ns=[t,...t.out.map(r=>T[r.p]),...t.inc.map(r=>T[r.c])];
+    const x0=Math.min(...ns.map(n=>n.x)),y0=Math.min(...ns.map(n=>n.y)),x1=Math.max(...ns.map(n=>n.x+CARD_W)),y1=Math.max(...ns.map(n=>n.y+n.h));
+    fitTo(x0-40,y0-40,x1-x0+80,y1-y0+80,1.1)}
+  else drawMini();
+}
+function renderInsp(t){
+  const d=t.dom, fk=new Set(t.out.map(r=>r.cc)), ref=new Set(t.inc.map(r=>r.pc));
+  const relRow=(r,dir)=>{const other=dir==='out'?r.p:r.c;
+    return `<button class="rel" data-t="${esc(other)}" style="--c:${T[other].dom.color}"><span class="dot"></span><span class="ra">${dir==='out'?`${esc(r.cc)} → <b>${esc(r.p)}</b>.${esc(r.pc)}`:`<b>${esc(r.c)}</b>.${esc(r.cc)} → ${esc(r.pc)}`}</span><span class="rt${r.decl?' d':''}">${r.decl?'FK ':''}${r.one?'1:1':'N:1'}</span></button>`};
+  $('#insp').style.setProperty('--c',d.color);
+  $('#insp').innerHTML=`<div class="ih"><span class="badge"><span class="dot" style="width:7px;height:7px;box-shadow:none"></span>${esc(d.name)}</span>
+    <button class="ib x" id="close" title="Close (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <h2>${esc(t.name)}</h2><p class="th">${esc(d.th)}</p>
+    <div class="metrics"><div class="metric"><b>${t.cols.length}</b><span>Columns</span></div><div class="metric"><b>${t.out.length}</b><span>Refs out</span></div><div class="metric"><b>${t.inc.length}</b><span>Refs in</span></div></div></div>
+    <div class="ib-body">
+    ${t.out.length?`<div class="sec" style="padding-top:14px"><span>References · อ้างอิงไปยัง</span></div>${t.out.map(r=>relRow(r,'out')).join('')}`:''}
+    ${t.inc.length?`<div class="sec" style="padding-top:14px"><span>Referenced by · ถูกอ้างอิงโดย</span></div>${t.inc.map(r=>relRow(r,'in')).join('')}`:''}
+    ${!t.out.length&&!t.inc.length?`<div class="empty th">ตารางนี้ไม่มีความสัมพันธ์กับตารางอื่น<br>(standalone / lookup / backup)</div>`:''}
+    <div class="sec" style="padding-top:14px"><span>Columns</span><span>${t.pk.length?'PK · '+esc(t.pk.join(', ')):'No primary key'}</span></div>
+    <div class="cols">${t.cols.map(c=>`<div class="col${c[3]?' id':''}">${t.pk.includes(c[0])?'<span class="kb pk">PK</span>':fk.has(c[0])?'<span class="kb fk">FK</span>':ref.has(c[0])?'<span class="kb ref">REF</span>':'<span></span>'}<span class="cn">${esc(c[0])}</span><span class="ct">${esc(c[1].toLowerCase())}${c[2]?'<span class="nn" title="NOT NULL">*</span>':''}</span></div>`).join('')}</div>
+    </div>`;
+  $('#close').onclick=()=>select(null);
+  $('#insp').querySelectorAll('.rel').forEach(b=>b.onclick=()=>select(T[b.dataset.t],true));
+}
+
+/* ---------- sidebar ---------- */
+const hiddenDom=new Set();
+function renderDoms(){
+  $('#doms').innerHTML=DATA.domains.map(d=>`<button class="dom${hiddenDom.has(d.id)?' off':''}" data-d="${d.id}" style="--c:${d.color}"><span class="sw"></span><span class="dn">${esc(d.name)}</span><span class="dc">${d.tables.length}</span></button>`).join('');
+  $('#doms').querySelectorAll('.dom').forEach(b=>b.onclick=e=>{
+    const id=b.dataset.d;
+    if(e.altKey||e.shiftKey){hiddenDom.clear();DATA.domains.forEach(d=>d.id!==id&&hiddenDom.add(d.id))}
+    else hiddenDom.has(id)?hiddenDom.delete(id):hiddenDom.add(id);
+    applyDoms();
+    if(!e.altKey&&!e.shiftKey&&!hiddenDom.has(id)){const z=ZONES.find(z=>z.d.id===id);fitTo(z.x,z.y,z.w,z.h,1)}
+  });
+}
+function applyDoms(){
+  renderDoms();
+  ZONES.forEach(z=>{const off=hiddenDom.has(z.d.id);z.el.classList.toggle('hidden-dom',off);z.ts.forEach(t=>t.el.classList.toggle('hidden-dom',off))});
+  RELS.forEach(r=>r.g.classList.toggle('hidden-dom',hiddenDom.has(T[r.c].dom.id)||hiddenDom.has(T[r.p].dom.id)));
+  renderList();drawMini();
+}
+$('#allDom').onclick=()=>{hiddenDom.clear();applyDoms()};
+function hi(s,q){if(!q)return esc(s);const i=s.toLowerCase().indexOf(q);return i<0?esc(s):esc(s.slice(0,i))+'<mark>'+esc(s.slice(i,i+q.length))+'</mark>'+esc(s.slice(i+q.length))}
+function renderList(){
+  const q=$('#q').value.trim().toLowerCase();let html='',n=0;
+  for(const d of DATA.domains){
+    if(hiddenDom.has(d.id))continue;
+    const items=d.tables.map(x=>T[x]).filter(t=>!q||t.name.toLowerCase().includes(q)||t.cols.some(c=>c[0].toLowerCase().includes(q)));
+    if(!items.length)continue;n+=items.length;
+    html+=`<div class="sec"><span>${esc(d.name)}</span></div>`+items.map(t=>{
+      const colHit=q&&!t.name.toLowerCase().includes(q)?t.cols.find(c=>c[0].toLowerCase().includes(q)):null;
+      return `<button class="ti${selected===t?' sel':''}" data-t="${esc(t.name)}" style="--c:${d.color}"><span class="dot"></span><span class="tn">${hi(t.name,q)}${colHit?` <span class="tr">· ${hi(colHit[0],q)}</span>`:''}</span><span class="tr">${t.out.length+t.inc.length||''}</span></button>`}).join('');
+  }
+  $('#list').innerHTML=html||`<div class="empty th">ไม่พบตารางที่ตรงกับ “${esc(q)}”</div>`;
+  $('#list').querySelectorAll('.ti').forEach(b=>{const t=T[b.dataset.t];
+    b.onclick=()=>{select(t,true);$('#side').classList.remove('open')};
+    b.onmouseenter=()=>!selected&&lightUp(t);b.onmouseleave=()=>!selected&&lightUp(null)});
+  return n;
+}
+$('#q').addEventListener('input',renderList);
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter'){const b=$('#list .ti');b&&b.click()}if(e.key==='Escape'){e.target.value='';renderList();e.target.blur()}});
+$('#sidebtn').onclick=()=>$('#side').classList.toggle('open');
+
+/* ---------- stats ---------- */
+const nCols=DATA.tables.reduce((s,t)=>s+t.cols.length,0);
+$('#stats').innerHTML=[[DATA.tables.length,'Tables'],[nCols.toLocaleString(),'Columns'],[RELS.length,'Relations'],[DATA.domains.length,'Domains']].map(([b,s])=>`<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
+
+/* ---------- edge tooltip via row hover ---------- */
+const tip=$('#tip');
+world.addEventListener('pointerover',e=>{const row=e.target.closest('.row[data-c]');if(!row){tip.classList.remove('on');return}
+  const t=T[row.closest('.card').querySelector('.card-n').textContent],c=row.dataset.c;
+  const rs=[...t.out.filter(r=>r.cc===c).map(r=>`→ <b>${esc(r.p)}</b>.${esc(r.pc)}`),...t.inc.filter(r=>r.pc===c).map(r=>`← <b>${esc(r.c)}</b>.${esc(r.cc)}`)];
+  const col=t.cols.find(x=>x[0]===c);
+  tip.innerHTML=`<b>${esc(t.name)}.${esc(c)}</b> <span>${esc(col[1])}${col[2]?' NOT NULL':''}</span>`+(rs.length?'<br>'+rs.join('<br>'):'');tip.classList.add('on')});
+world.addEventListener('pointermove',e=>{tip.style.left=e.clientX+14+'px';tip.style.top=e.clientY+14+'px'});
+world.addEventListener('pointerleave',()=>tip.classList.remove('on'));
+
+/* ---------- minimap ---------- */
+const mc=$('#mini canvas'),mx=mc.getContext('2d');let MS=1,MO={x:0,y:0};
+function drawMini(){
+  const r=mc.getBoundingClientRect();if(!r.width)return;const dpr=devicePixelRatio||1;
+  if(mc.width!==r.width*dpr){mc.width=r.width*dpr;mc.height=r.height*dpr}
+  mx.setTransform(dpr,0,0,dpr,0,0);mx.clearRect(0,0,r.width,r.height);
+  MS=Math.min((r.width-16)/WORLD.w,(r.height-16)/WORLD.h);MO={x:(r.width-WORLD.w*MS)/2,y:(r.height-WORLD.h*MS)/2};
+  for(const z of ZONES){const off=hiddenDom.has(z.d.id);mx.globalAlpha=off?.05:.16;mx.fillStyle=z.d.color;
+    mx.beginPath();mx.roundRect(MO.x+z.x*MS,MO.y+z.y*MS,z.w*MS,z.h*MS,3);mx.fill();
+    mx.globalAlpha=off?.1:.85;for(const t of z.ts){mx.fillRect(MO.x+t.x*MS,MO.y+t.y*MS,CARD_W*MS,t.h*MS)}}
+  mx.globalAlpha=1;const cs=getComputedStyle(document.documentElement);
+  mx.strokeStyle=cs.getPropertyValue('--text').trim();mx.lineWidth=1.25;
+  mx.strokeRect(MO.x+(-V.x/V.k)*MS,MO.y+(-V.y/V.k)*MS,innerWidth/V.k*MS,innerHeight/V.k*MS);
+}
+function miniNav(e){const r=mc.getBoundingClientRect();const wx=(e.clientX-r.left-MO.x)/MS,wy=(e.clientY-r.top-MO.y)/MS;
+  cancelAnimationFrame(animId);V.x=innerWidth/2-wx*V.k;V.y=innerHeight/2-wy*V.k;apply()}
+mc.addEventListener('pointerdown',e=>{miniNav(e);mc.setPointerCapture(e.pointerId);mc.onpointermove=miniNav;mc.onpointerup=()=>mc.onpointermove=null});
+
+/* ---------- theme & keys ---------- */
+$('#theme').onclick=()=>{const dark=matchMedia('(prefers-color-scheme: dark)').matches;const cur=document.documentElement.dataset.theme||(dark?'dark':'light');
+  document.documentElement.dataset.theme=cur==='dark'?'light':'dark';try{localStorage.setItem('callab-theme',document.documentElement.dataset.theme)}catch(e){}drawMini()};
+try{const s=localStorage.getItem('callab-theme');if(s)document.documentElement.dataset.theme=s}catch(e){}
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;
+  if(e.key==='/'){e.preventDefault();$('#q').focus()}
+  else if(e.key==='Escape')select(null);
+  else if(e.key==='f'||e.key==='F')fitAll();
+  else if(e.key==='+'||e.key==='=')$('#zin').click();
+  else if(e.key==='-')$('#zout').click()});
+addEventListener('resize',drawMini);
+
+renderDoms();renderList();fitAll(false);
+document.fonts&&document.fonts.ready.then(drawMini);
+</script>
+</body>
+</html>
